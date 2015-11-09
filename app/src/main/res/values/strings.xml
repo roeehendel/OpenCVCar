@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">OpenCV</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="calibrate">Calibrate</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+</resources>
