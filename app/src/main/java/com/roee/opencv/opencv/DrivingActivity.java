@@ -104,7 +104,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     private Button mDisconnectButton;
     private Menu mMenu;
 
-    private int mPower = 20;
+    private int mPower = 40;
     private boolean mDrive = false;
 
     private boolean mReverse;
@@ -301,6 +301,9 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         }
     }
 
+    /*
+    * Starts bluetooth device selection activity
+     */
     private void findBrick() {
         Intent intent = new Intent(this, ChooseDeviceActivity.class);
         startActivityForResult(intent, REQUEST_CONNECT_DEVICE);
@@ -354,8 +357,8 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             if (mMotorSpeedCalculator != null && mMotorSpeedCalculator.getFramesCount() != 0) {
                 mAsymmetryTextView.setText("Tilt: " + mMotorSpeedCalculator.getCalibratedTilt() + ", Deviation: " + mMotorSpeedCalculator.getCalibratedDeviation());
                 String displayDirection = (mMotorSpeedCalculator.correctionDirection() == MotorSpeedCalculator.LEFT) ? "Left" : "Right";
-                mVerticalLinesTextView.setText("Correction direction: " + displayDirection + ", Magnitude: " + mMotorSpeedCalculator.correctionMagnitude());
-                mStatusTextView.setText("Status: " + statusCodes[mStatus]);
+                mVerticalLinesTextView.setText("Dir: " + displayDirection + ", Mag: " + mMotorSpeedCalculator.correctionMagnitude());
+                mStatusTextView.setText("Stts: " + statusCodes[mStatus]);
             }
             mTopBarHandler.postDelayed(mUpdateTopBarTask, 100);
         }
@@ -412,9 +415,11 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
 
+        // Process visual data to find lanes
         mLaneDetector.proccessFrame(mRgba);
 
         mFrameCount++;
+
 
         mMotorSpeedCalculator.addFrameData(mLaneDetector.getLanes(), mLaneDetector.getVerticalLineCount());
 

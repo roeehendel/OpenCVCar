@@ -101,12 +101,10 @@ public class MotorSpeedCalculator {
      * @return
      */
     private double correction(int side){
-        if(correctionMagnitude() > CORRECTION_MAGNITUDE_THRESHOLD){
-            if(side == correctionDirection()){
-                return 0.5;
-            }
+        if(side == correctionDirection()) {
+            return correctionMagnitude();
         }
-        return 0;
+        return -correctionMagnitude();
     }
 
     public double getLeftSpeed(){
@@ -139,11 +137,11 @@ public class MotorSpeedCalculator {
     }
 
     public double correctionMagnitude(){
-        double tilt = getCalibratedTilt();
-        double deviation = getCalibratedDeviation();
+        double tilt = Math.abs(getCalibratedTilt());
+        double deviation = Math.abs(getCalibratedDeviation());
 
-        if(Math.abs(tilt) > 3 && Math.abs(deviation) > 20){
-            return 1;
+        if(tilt > 3 || deviation > 20){
+            return Math.round((deviation / 250) * 100.0) / 100.0;
         }
         return 0;
 

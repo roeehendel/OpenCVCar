@@ -38,7 +38,7 @@ public class LaneDetector {
         detectLines();
         // Process lines to extract lanes
         extractLanes();
-
+        // Find the angle bisector. Used for determination of tilt and deviation
         calculateAngleBisector();
     }
 
@@ -55,10 +55,8 @@ public class LaneDetector {
         double threshold2 = otsu_thresh_val;
         Imgproc.Canny(mTemp, mTemp, threshold1, threshold2);
 
-//        Imgproc.pyrUp(mTemp, mTemp);
-
         // Detect lines with Hough Transform
-        Imgproc.HoughLinesP(mTemp, mLines, 1, Math.PI / 180, 100, 150, 70);
+        Imgproc.HoughLinesP(mTemp, mLines, 1, Math.PI / 180, 35, 2, 100);
 
         // Release unnecessary temporary Mat
 //        mTemp.release();
@@ -74,7 +72,7 @@ public class LaneDetector {
         int row = 0;
         int x = 0;
 
-        while ( x < mLines.rows() && row < mLanes.length - 1) {
+        while (x < mLines.rows() && row < mLanes.length - 1) {
 
             double[] vec = mLines.get(x, 0);
             double y1 = vec[0],
@@ -84,20 +82,16 @@ public class LaneDetector {
 
             double length = Math.sqrt(Math.pow(y1-y2, 2) + Math.pow(x1-x2, 2));
 
+            // Extract the line's Cartesian properties (y = a*x + b)
+            double a = (y1 - y2) / (x1 - x2);
+            double b = y1 - a * x1;
+
             // Decide whether a line qualifies as a lane or not
-            if(length > DrivingActivity.mFrameHeight / 64) {
-
-                // Extract the line's Cartesian properties (y = a*x + b)
-                double a = (y1 - y2) / (x1 - x2);
-
-                double b = y1 - a * x1;
-
-                if (Math.abs(b - lastB) > 100 && Math.abs(a) < VerticalThresholdSlope) {
-                    mLanes[row] = new double[]{a, b};
-                    mVerticalLineCount++;
-                    lastB = b;
-                    row++;
-                }
+            if (Math.abs(b - lastB) > 100 && Math.abs(a) < VerticalThresholdSlope) {
+                mLanes[row] = new double[]{a, b};
+                mVerticalLineCount++;
+                lastB = b;
+                row++;
             }
             x++;
         }
