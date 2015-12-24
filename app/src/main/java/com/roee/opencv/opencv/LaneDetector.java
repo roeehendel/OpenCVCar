@@ -106,7 +106,10 @@ public class LaneDetector {
             Log.e("LaneDetector", "p(" + intersectionX + "," + intersectionY + ")");
             Log.e("LaneDetector", "Height: " + mRgba.height() + ", width:" + mRgba.width());
 
-            if((intersectionX < 0 || intersectionX > mRgba.height()) || (intersectionY < 0 || intersectionY > mRgba.width())) {
+            // padding factor
+            double pf = mRgba.height() * 0.5;
+
+            if((intersectionX < 0 - pf || intersectionX > mRgba.height() + pf) || (intersectionY < 0 - pf || intersectionY > mRgba.width() + pf)) {
                 return true;
             }
         }
@@ -195,6 +198,10 @@ public class LaneDetector {
     public Mat getFrameWithLanes() {
         createFrameWithLanes();
         return mFrameWithLanes;
+    }
+
+    public LinearEquation getBisectorLine(){
+        return mBisectorLine;
     }
 
     public Mat getTemp(){
