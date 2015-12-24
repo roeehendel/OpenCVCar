@@ -1,12 +1,17 @@
 package com.roee.opencv.opencv;
 
+import android.util.Log;
+
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+import java.util.ArrayList;
+
 public class LaneDetector {
 
+    // max slope for a line to be considered as vertical
     private double VerticalThresholdSlope = 4;
 
     private Mat mRgba;
@@ -14,32 +19,36 @@ public class LaneDetector {
     private Mat mFrameWithLanes;
     private Mat mTemp;
 
-    private double[][] mLanes;
-    private double[] mBisectorLine;
+    private ArrayList<LinearEquation> mLinearEquations;
 
-    private int mVerticalLineCount;
+    private LinearEquation mLeftLane;
+    private LinearEquation mRightLane;
+    private LinearEquation mBisectorLine;
 
     public LaneDetector(){
         mRgba = new Mat();
         mLines = new Mat();
-        mLanes = new double[3][2];
-        mBisectorLine = new double[2];
+        mLinearEquations = new ArrayList<LinearEquation>();
         mFrameWithLanes = new Mat();
         mTemp = new Mat();
     }
 
-    public void proccessFrame(Mat frame){
+    public void processFrame(Mat frame){
 
-        mVerticalLineCount = 0;
+        mLinearEquations.clear();
 
         mRgba = frame;
 
         // Detect all lines in image
         detectLines();
+        // Transform the two dots received from HoughLinesP() into linear equations
+        calculateLinearEquations();
         // Process lines to extract lanes
         extractLanes();
         // Find the angle bisector. Used for determination of tilt and deviation
-        calculateAngleBisector();
+        if(lanesFound()){
+            calculateAngleBisector();
+        }
     }
 
     public void detectLines(){
@@ -63,87 +72,106 @@ public class LaneDetector {
 
     }
 
-    public void extractLanes(){
+    private void calculateLinearEquations() {
 
-        mLanes = new double[3][2];
+        Log.e("LaneDetector", "Detected lines: " + mLines.rows());
 
-        double lastB = Double.POSITIVE_INFINITY;
-
-        int row = 0;
-        int x = 0;
-
-        while (x < mLines.rows() && row < mLanes.length - 1) {
-
-            double[] vec = mLines.get(x, 0);
+        for(int i=0;i<mLines.rows();i++){
+            double[] vec = mLines.get(i, 0);
             double y1 = vec[0],
                     x1 = vec[1],
                     y2 = vec[2],
                     x2 = vec[3];
 
-            double length = Math.sqrt(Math.pow(y1-y2, 2) + Math.pow(x1-x2, 2));
-
-            // Extract the line's Cartesian properties (y = a*x + b)
+            // Find the linear equation parameters (y = a*x + b)
             double a = (y1 - y2) / (x1 - x2);
             double b = y1 - a * x1;
 
-            // Decide whether a line qualifies as a lane or not
-            if (Math.abs(b - lastB) > 100 && Math.abs(a) < VerticalThresholdSlope) {
-                mLanes[row] = new double[]{a, b};
-                mVerticalLineCount++;
-                lastB = b;
-                row++;
-            }
-            x++;
+            mLinearEquations.add(new LinearEquation(a,b));
         }
+    }
 
-        double[] lane1 = mLanes[0];
-        double[] lane2 = mLanes[1];
+    public boolean qualifyAsLanes(LinearEquation line1, LinearEquation line2){
+        double a1 = line1.getA(),
+                b1 = line1.getB(),
+                a2 = line2.getA(),
+                b2 = line2.getB();
 
-        if(lane1[0] > 0){
-            mLanes[0] = lane1;
-            mLanes[1] = lane2;
+        if (Math.abs(b1 - b2) > 100 && Math.abs(a1) < VerticalThresholdSlope && Math.abs(a2) < VerticalThresholdSlope && a1 * a2 < 0) {
+
+
+            double  intersectionX = (b2 - b1)/(a1 - a2),
+                    intersectionY = a1 * intersectionX + b1;
+
+            Log.e("LaneDetector", "p(" + intersectionX + "," + intersectionY + ")");
+            Log.e("LaneDetector", "Height: " + mRgba.height() + ", width:" + mRgba.width());
+
+            if((intersectionX < 0 || intersectionX > mRgba.height()) || (intersectionY < 0 || intersectionY > mRgba.width())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void setLanes(LinearEquation lane1, LinearEquation lane2) {
+        if(lane1.getA() > 0){
+            mLeftLane = lane1;
+            mRightLane = lane2;
         }else{
-            mLanes[0] = lane2;
-            mLanes[1] = lane1;
+            mLeftLane = lane2;
+            mRightLane = lane1;
+        }
+    }
+
+    public void extractLanes() {
+
+        Log.e("LaneDetector", "Equations: " + mLinearEquations.size());
+
+        for(int i=0; i<mLinearEquations.size(); i++){
+            for(int j=i+1; j<mLinearEquations.size(); j++){
+                if(qualifyAsLanes(mLinearEquations.get(i), mLinearEquations.get(j))){
+                    setLanes(mLinearEquations.get(i), mLinearEquations.get(j));
+                    return;
+                }
+            }
         }
 
     }
 
-    public void createFrameWithLanes(int[] lanesColor){
+    public void createFrameWithLanes(){
         mRgba.copyTo(mFrameWithLanes);
+        if(lanesFound()){
+            drawLinearEquation(mLeftLane, new Scalar(250, 0, 0));
+            drawLinearEquation(mRightLane, new Scalar(0, 250, 0));
+            drawLinearEquation(mBisectorLine, new Scalar(0, 0, 250));
+        }
+    }
 
-        for (int x = 0; x < mLanes.length; x++) {
-            // Get line y = a*x + b. [0] = a, [1] = b
-            double[] line = mLanes[x];
+    public void drawLinearEquation(LinearEquation line, Scalar color){
+        double a = line.getA(),
+                b = line.getB(),
+                y1 = 0,
+                y2 = mRgba.width(),
+                x1 = a * y1 + b,
+                x2 = a * y2 + b;
 
-            double a = line[0],
-                    b = line[1],
-                    y1 = 0,
-                    y2 = mRgba.width(),
-                    x1 = a * y1 + b,
-                    x2 = a * y2 + b;
+        if(a != 0 && b != 0){
 
-            if(a != 0 && b != 0){
+            Point start = new Point(x1, y1);
+            Point end = new Point(x2, y2);
 
-                Point start = new Point(x1, y1);
-                Point end = new Point(x2, y2);
-
-                Imgproc.line(mFrameWithLanes,
-                        start, end,
-                        new Scalar(x * lanesColor[0],x * lanesColor[1] ,x *lanesColor[2]),
-                        4);
-            }
+            Imgproc.line(mFrameWithLanes,
+                    start, end,
+                    color,
+                    4);
         }
     }
 
     public void calculateAngleBisector(){
-        double[] lane1 = mLanes[0],
-                 lane2 = mLanes[1];
-
-        double a1 = lane1[0],
-                b1 = lane1[1],
-                a2 = lane2[0],
-                b2 = lane2[1],
+        double a1 = mLeftLane.getA(),
+                b1 = mLeftLane.getB(),
+                a2 = mRightLane.getA(),
+                b2 = mRightLane.getB(),
                 A1 = -a1,
                 A2 = - a2,
                 B12 = 1,
@@ -157,24 +185,16 @@ public class LaneDetector {
                 a = -A/B,
                 b = -C/B;
 
-        mBisectorLine[0] = a;
-        mBisectorLine[1] = b;
-
-        mLanes[2] = mBisectorLine;
-
+        mBisectorLine = new LinearEquation(a, b);
     }
 
-    public int getVerticalLineCount() {
-        return mVerticalLineCount;
+    public boolean lanesFound(){
+        return mLeftLane != null && mRightLane != null;
     }
 
-    public Mat getFrameWithLanes(int[] lanesColor) {
-        createFrameWithLanes(lanesColor);
+    public Mat getFrameWithLanes() {
+        createFrameWithLanes();
         return mFrameWithLanes;
-    }
-
-    public double[][] getLanes(){
-        return mLanes;
     }
 
     public Mat getTemp(){
