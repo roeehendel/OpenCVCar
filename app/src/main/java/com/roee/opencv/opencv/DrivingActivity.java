@@ -416,7 +416,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         mRgba = inputFrame.rgba();
 
         // Process visual data to find lanes
-        mLaneDetector.proccessFrame(mRgba);
+        mLaneDetector.processFrame(mRgba);
 
         mFrameCount++;
 
