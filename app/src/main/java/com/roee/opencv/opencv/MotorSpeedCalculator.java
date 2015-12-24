@@ -5,60 +5,24 @@ package com.roee.opencv.opencv;
  */
 public class MotorSpeedCalculator {
 
-    // Statuses
-    public static final int STRAIGHT = 0;
-    public static final int PRETURN_LEFT = 1;
-    public static final int PRETURN_RIGHT = 2;
-    public static final int TURN = 3;
-
     public static final int LEFT = 0;
     public static final int RIGHT = 1;
-
-    public static final double CORRECTION_MAGNITUDE_THRESHOLD = 0.5;
 
     public static double mTiltCalibrationValue = 0;
     public static double mDeviationCalibrationValue = 0;
 
-    private int mTotalVerticalLineCount = 0;
     private int mFramesCount = 0;
 
-    private int mLeftOrRight = 0;
     private double mTilt = 0;
     private double mDeviation = 0;
 
-    public int status(){
-        double verticalLineAvgCount = (double)mTotalVerticalLineCount / (double)mFramesCount;
-        if(verticalLineAvgCount > 1.6){
-            // straight
-            return STRAIGHT;
-        }else if(verticalLineAvgCount > 0){
-            // Determine the direction of the possible turn ahead
-            if(mLeftOrRight > 0){
-                return PRETURN_LEFT;
-            }else{
-                return PRETURN_RIGHT;
-            }
-        }
-        return TURN;
-    }
 
-    public void addFrameData(double[][] lanes, int verticalLaneCount){
+    public void addFrameData(LinearEquation bisector){
 
-        mTotalVerticalLineCount += verticalLaneCount;
         mFramesCount++;
 
-        for (int x = 0; x < lanes.length; x++) {
-            // Get line y = a*x + b. [0] = a, [1] = b
-            double[] line = lanes[x];
-
-            double a = line[0],
-                    b = line[1];
-
-            mLeftOrRight += Math.signum(a);
-        }
-
-        mTilt += lanes[2][0] * 100;
-        mDeviation += DrivingActivity.mFrameWidth/2 - lanes[2][1];
+        mTilt += bisector.getA() * 100;
+        mDeviation += DrivingActivity.mFrameWidth/2 - bisector.getB();
 
     }
 
@@ -82,10 +46,6 @@ public class MotorSpeedCalculator {
         return mFramesCount;
     }
 
-    public int getTotalVerticalLineCount(){
-        return mTotalVerticalLineCount;
-    }
-
     public static void setTiltCalibrationValue(double mTiltCalibrationValue) {
         MotorSpeedCalculator.mTiltCalibrationValue = mTiltCalibrationValue;
     }
@@ -104,6 +64,7 @@ public class MotorSpeedCalculator {
         if(side == correctionDirection()) {
             return correctionMagnitude();
         }
+        // Todo: check whether returning 0 instead is better or not
         return -correctionMagnitude();
     }
 
@@ -112,7 +73,6 @@ public class MotorSpeedCalculator {
     }
 
     public double getRightSpeed(){
-
         return 1.15 * (1 + correction(RIGHT));
     }
 

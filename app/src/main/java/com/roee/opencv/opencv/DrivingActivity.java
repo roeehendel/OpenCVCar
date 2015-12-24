@@ -420,16 +420,18 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
 
         mFrameCount++;
 
+        LinearEquation bisector = mLaneDetector.getBisectorLine();
 
-        mMotorSpeedCalculator.addFrameData(mLaneDetector.getLanes(), mLaneDetector.getVerticalLineCount());
+        if(bisector != null){
+            mMotorSpeedCalculator.addFrameData(bisector);
+        }
 
         if (mFrameCount == mFramesPerCalculation) {
 
             // Reset frame counter
             mFrameCount = 0;
-            // Calculate motor speeds
-            mStatus = mMotorSpeedCalculator.status();
 
+            // Do a calibration if it was requested
             if (mCalibrateOnNextCalc) {
                 mCalibrateOnNextCalc = false;
                 MotorSpeedCalculator.setTiltCalibrationValue(-mMotorSpeedCalculator.getTilt());
@@ -439,7 +441,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             byte l;
             byte r;
 
-            if (mDrive && mMotorSpeedCalculator.getTotalVerticalLineCount() / mMotorSpeedCalculator.getFramesCount() == 2) {
+            if (mDrive) {
                 l = (byte) (mPower * mMotorSpeedCalculator.getLeftSpeed());
                 r = (byte) (mPower * mMotorSpeedCalculator.getRightSpeed());
             } else {
@@ -455,7 +457,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
 
 
         // Process preview frame
-        mProcessedFrame = mLaneDetector.getFrameWithLanes(mAccentColor);
+        mProcessedFrame = mLaneDetector.getFrameWithLanes();
 
 
 //        return mLaneDetector.getTemp();
