@@ -97,7 +97,7 @@ public class LaneDetector {
                 a2 = line2.getA(),
                 b2 = line2.getB();
 
-        if (Math.abs(b1 - b2) > 100 && Math.abs(a1) < VerticalThresholdSlope && Math.abs(a2) < VerticalThresholdSlope && a1 * a2 < 0) {
+        if (Math.abs(b1 - b2) > 100 && Math.abs(a1) < VerticalThresholdSlope && Math.abs(a2) < VerticalThresholdSlope) {
 
 
             double  intersectionX = (b2 - b1)/(a1 - a2),

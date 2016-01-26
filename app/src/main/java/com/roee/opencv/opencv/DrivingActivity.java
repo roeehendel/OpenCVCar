@@ -104,7 +104,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     private Button mDisconnectButton;
     private Menu mMenu;
 
-    private int mPower = 40;
+    private int mPower = 20;
     private boolean mDrive = false;
 
     private boolean mReverse;

@@ -27,4 +27,11 @@ public class LinearEquation {
     public void setB(double b) {
         this.b = b;
     }
+
+    public Point intersect(LinearEquation linearEquation){
+        double x = (getB() - linearEquation.getB()) / (linearEquation.getA() - getA()),
+                y = getA() * x + getB();
+        return new Point(x, y);
+    }
+
 }

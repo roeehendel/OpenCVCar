@@ -8,6 +8,10 @@ public class MotorSpeedCalculator {
     public static final int LEFT = 0;
     public static final int RIGHT = 1;
 
+    private static final double TILT_CORRECTION = 0.573;
+
+    private static final int V0 = 1;
+
     public static double mTiltCalibrationValue = 0;
     public static double mDeviationCalibrationValue = 0;
 
@@ -21,7 +25,7 @@ public class MotorSpeedCalculator {
 
         mFramesCount++;
 
-        mTilt += bisector.getA() * 100;
+        mTilt += bisector.getA();
         mDeviation += DrivingActivity.mFrameWidth/2 - bisector.getB();
 
     }
@@ -30,8 +34,12 @@ public class MotorSpeedCalculator {
         return mTilt / mFramesCount;
     }
 
+    /*
+    * The calibrated tilt is tan(theta), where theta is the angle between the direction of the car and the direction of the detected lane
+    * Values should range from -1 to 1, where this function is the most accurate
+     */
     public double getCalibratedTilt(){
-        return Math.round( (mTilt / mFramesCount + mTiltCalibrationValue) * 10.0 ) / 10.0;
+        return Math.round( (mTilt / mFramesCount + mTiltCalibrationValue + getCalibratedDeviation()/5*0.02) * TILT_CORRECTION * 100.0 ) / 100.0;
     }
 
     public double getDeviation(){
