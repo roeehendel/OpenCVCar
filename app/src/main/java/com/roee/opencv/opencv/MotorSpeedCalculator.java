@@ -1,5 +1,7 @@
 package com.roee.opencv.opencv;
 
+import org.opencv.core.Point;
+
 /**
  * Created by Roee on 10/10/2015.
  */
@@ -8,25 +10,41 @@ public class MotorSpeedCalculator {
     public static final int LEFT = 0;
     public static final int RIGHT = 1;
 
-    private static final double TILT_CORRECTION = 0.573;
+    private static final double K_TILT = 0.573;
+    private static final double K_ERROR = 1;
 
-    private static final int V0 = 1;
+    private static final double K_V = 1.2;
+    private static final double MAX_SPEED = 2;
+    private static final double K_PROPORTIONAL = 0.2;
+    private static final double K_DERIVATIVE = 0.8;
 
     public static double mTiltCalibrationValue = 0;
     public static double mDeviationCalibrationValue = 0;
+
+    public static final double BASE_SPEED = 1;
+    public static double sLeftSpeed = BASE_SPEED;
+    public static double sRightSpeed = BASE_SPEED;
 
     private int mFramesCount = 0;
 
     private double mTilt = 0;
     private double mDeviation = 0;
+    private double mDistance = 0;
 
+    private double lastError;
+
+    public MotorSpeedCalculator(double lastError){
+        this.lastError = lastError;
+    }
 
     public void addFrameData(LinearEquation bisector){
 
         mFramesCount++;
 
-        mTilt += bisector.getA();
-        mDeviation += DrivingActivity.mFrameWidth/2 - bisector.getB();
+        mTilt += bisector.a;
+        mDeviation += DrivingActivity.mFrameWidth/2 - bisector.b;
+
+        mDistance += bisector.distanceFromPoint(new Point(DrivingActivity.mFrameHeight/2, DrivingActivity.mFrameWidth/2));
 
     }
 
@@ -39,7 +57,7 @@ public class MotorSpeedCalculator {
     * Values should range from -1 to 1, where this function is the most accurate
      */
     public double getCalibratedTilt(){
-        return Math.round( (mTilt / mFramesCount + mTiltCalibrationValue + getCalibratedDeviation()/5*0.02) * TILT_CORRECTION * 100.0 ) / 100.0;
+        return (mTilt / mFramesCount + mTiltCalibrationValue + getCalibratedDeviation()/5*0.02) * K_TILT;
     }
 
     public double getDeviation(){
@@ -47,7 +65,11 @@ public class MotorSpeedCalculator {
     }
 
     public double getCalibratedDeviation(){
-        return Math.round( (mDeviation / mFramesCount + mDeviationCalibrationValue) * 10.0 ) / 10.0;
+        return mDeviation / mFramesCount + mDeviationCalibrationValue;
+    }
+
+    public double getDistance(){
+        return mDistance / mFramesCount;
     }
 
     public int getFramesCount(){
@@ -77,11 +99,23 @@ public class MotorSpeedCalculator {
     }
 
     public double getLeftSpeed(){
-        return 1 + correction(LEFT);
+        return sLeftSpeed;
     }
 
     public double getRightSpeed(){
-        return 1.15 * (1 + correction(RIGHT));
+        return sRightSpeed;
+    }
+
+    public double error(){
+        return K_ERROR * getDistance();
+    }
+
+    public double dError(){
+        return error() - lastError;
+    }
+
+    public double correction(){
+        return 1 / (1 + Math.exp(-4 * (error()))) - 0.5;
     }
 
     public int correctionDirection(){
@@ -115,4 +149,15 @@ public class MotorSpeedCalculator {
 
     }
 
+    public void calculateSpeeds() {
+        sRightSpeed = BASE_SPEED + K_V * correction();
+        sRightSpeed = (Math.abs(sRightSpeed) > MAX_SPEED) ? Math.signum(sRightSpeed) * MAX_SPEED : sRightSpeed;
+        sLeftSpeed = BASE_SPEED + K_V * -correction();
+        sLeftSpeed = (Math.abs(sLeftSpeed) > MAX_SPEED) ? Math.signum(sLeftSpeed) * MAX_SPEED : sLeftSpeed;
+    }
+
+    public static void resetSpeeds() {
+        sLeftSpeed = BASE_SPEED;
+        sRightSpeed = BASE_SPEED;
+    }
 }

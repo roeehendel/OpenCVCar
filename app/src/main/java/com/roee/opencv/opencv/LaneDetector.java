@@ -11,13 +11,18 @@ import java.util.ArrayList;
 
 public class LaneDetector {
 
+    private static final String LOG_TAG = LaneDetector.class.getSimpleName();
+
     // max slope for a line to be considered as vertical
-    private double VerticalThresholdSlope = 4;
+    private static final double VERTICAL_THRESHOLD_SLOPE = 4;
+    private static final double BRIGHTNESS_DIFFERENCE_THRESHOLD = 15;
+    private static final int LENGTH_THRESHOLD = DrivingActivity.mFrameWidth / 4;
 
     private Mat mRgba;
+    private Mat mGrayscale;
+    private Mat mDisplayFrame;
     private Mat mLines;
-    private Mat mFrameWithLanes;
-    private Mat mTemp;
+    private Mat mCanny;
 
     private ArrayList<LinearEquation> mLinearEquations;
 
@@ -29,8 +34,9 @@ public class LaneDetector {
         mRgba = new Mat();
         mLines = new Mat();
         mLinearEquations = new ArrayList<LinearEquation>();
-        mFrameWithLanes = new Mat();
-        mTemp = new Mat();
+        mGrayscale = new Mat();
+        mDisplayFrame = new Mat();
+        mCanny = new Mat();
     }
 
     public void processFrame(Mat frame){
@@ -43,38 +49,40 @@ public class LaneDetector {
         detectLines();
         // Transform the two dots received from HoughLinesP() into linear equations
         calculateLinearEquations();
+        // Filter lines that don't exceed the brightness difference threshold
+        //filterBybrightnessDifference();
         // Process lines to extract lanes
         extractLanes();
         // Find the angle bisector. Used for determination of tilt and deviation
         if(lanesFound()){
-            calculateAngleBisector();
+            mBisectorLine = LinearEquation.calculateAngleBisector(mLeftLane, mRightLane);
         }
     }
 
     public void detectLines(){
 
         // Convert image to grayscale
-        Imgproc.cvtColor(mRgba, mTemp, Imgproc.COLOR_RGB2GRAY);
+        Imgproc.cvtColor(mRgba, mGrayscale, Imgproc.COLOR_RGB2GRAY);
 
         double otsu_thresh_val = Imgproc.threshold(
-                mTemp, new Mat(), 0, 255, Imgproc.THRESH_OTSU | Imgproc.THRESH_BINARY);
+                mGrayscale, new Mat(), 0, 255, Imgproc.THRESH_OTSU | Imgproc.THRESH_BINARY);
 
         // Apply Canny to image
-        double threshold1 = otsu_thresh_val/2;
+        double threshold1 = otsu_thresh_val / 2;
         double threshold2 = otsu_thresh_val;
-        Imgproc.Canny(mTemp, mTemp, threshold1, threshold2);
+        Imgproc.Canny(mGrayscale, mCanny, threshold1, threshold2);
 
         // Detect lines with Hough Transform
-        Imgproc.HoughLinesP(mTemp, mLines, 1, Math.PI / 180, 35, 2, 100);
+        Imgproc.HoughLinesP(mCanny, mLines, 1, Math.PI / 180, 35, LENGTH_THRESHOLD, 100);
 
         // Release unnecessary temporary Mat
-//        mTemp.release();
+//        mCanny.release();
 
     }
 
     private void calculateLinearEquations() {
 
-        Log.e("LaneDetector", "Detected lines: " + mLines.rows());
+        //Log.e("LaneDetector", "Detected lines: " + mLines.rows());
 
         for(int i=0;i<mLines.rows();i++){
             double[] vec = mLines.get(i, 0);
@@ -82,42 +90,41 @@ public class LaneDetector {
                     x1 = vec[1],
                     y2 = vec[2],
                     x2 = vec[3];
-
-            // Find the linear equation parameters (y = a*x + b)
-            double a = (y1 - y2) / (x1 - x2);
-            double b = y1 - a * x1;
-
-            mLinearEquations.add(new LinearEquation(a,b));
+            LinearEquation linearEquation = new LinearEquation(x1, y1, x2, y2);
+            if(linearEquation.length() > LENGTH_THRESHOLD){
+                mLinearEquations.add(linearEquation);
+            }
         }
     }
 
+
+
     public boolean qualifyAsLanes(LinearEquation line1, LinearEquation line2){
-        double a1 = line1.getA(),
-                b1 = line1.getB(),
-                a2 = line2.getA(),
-                b2 = line2.getB();
+        double a1 = line1.a,
+                b1 = line1.b,
+                a2 = line2.a,
+                b2 = line2.b;
 
-        if (Math.abs(b1 - b2) > 100 && Math.abs(a1) < VerticalThresholdSlope && Math.abs(a2) < VerticalThresholdSlope) {
+        if (Math.abs(b1 - b2) > 10 && Math.abs(a1) < VERTICAL_THRESHOLD_SLOPE && Math.abs(a2) < VERTICAL_THRESHOLD_SLOPE) {
 
+            Point intersection = LinearEquation.intersect(line1, line2);
 
-            double  intersectionX = (b2 - b1)/(a1 - a2),
-                    intersectionY = a1 * intersectionX + b1;
-
-            Log.e("LaneDetector", "p(" + intersectionX + "," + intersectionY + ")");
-            Log.e("LaneDetector", "Height: " + mRgba.height() + ", width:" + mRgba.width());
+            //Log.e("LaneDetector", "Height: " + mRgba.height() + ", width:" + mRgba.width());
 
             // padding factor
             double pf = mRgba.height() * 0.5;
 
-            if((intersectionX < 0 - pf || intersectionX > mRgba.height() + pf) || (intersectionY < 0 - pf || intersectionY > mRgba.width() + pf)) {
-                return true;
+            if((intersection.x < 0 - pf || intersection.x > mRgba.height() + pf) || (intersection.y < 0 - pf || intersection.y > mRgba.width() + pf)) {
+                if(brightnessDifferenceFits(line1) && brightnessDifferenceFits(line2)){
+                    return true;
+                }
             }
         }
         return false;
     }
 
     private void setLanes(LinearEquation lane1, LinearEquation lane2) {
-        if(lane1.getA() > 0){
+        if(lane1.distanceFromPoint(new Point(DrivingActivity.mFrameHeight/2, 0)) > lane2.distanceFromPoint(new Point(DrivingActivity.mFrameHeight/2, 0))){
             mLeftLane = lane1;
             mRightLane = lane2;
         }else{
@@ -128,7 +135,7 @@ public class LaneDetector {
 
     public void extractLanes() {
 
-        Log.e("LaneDetector", "Equations: " + mLinearEquations.size());
+        //Log.e("LaneDetector", "Equations: " + mLinearEquations.size());
 
         for(int i=0; i<mLinearEquations.size(); i++){
             for(int j=i+1; j<mLinearEquations.size(); j++){
@@ -141,18 +148,73 @@ public class LaneDetector {
 
     }
 
-    public void createFrameWithLanes(){
-        mRgba.copyTo(mFrameWithLanes);
+    public boolean brightnessDifferenceFits(LinearEquation line){
+        return Math.abs(brightnessDifferenceAroundLine(line)) > BRIGHTNESS_DIFFERENCE_THRESHOLD;
+    }
+
+//    public void filterBybrightnessDifference(){
+//        ArrayList<LinearEquation> iterable = (ArrayList<LinearEquation>) mLinearEquations.clone();
+//        for(LinearEquation line: iterable){
+//            if(Math.abs(brightnessDifferenceAroundLine(line)) < BRIGHTNESS_DIFFERENCE_THRESHOLD){
+//                mLinearEquations.remove(line);
+//            }
+//        }
+//    }
+
+    public double brightnessDifferenceAroundLine(LinearEquation line){
+        Point center = line.center();
+        LinearEquation normal = line.normal(center);
+        LinearEquation side1 = new LinearEquation(line.a, line.b + 10);
+        LinearEquation side2 = new LinearEquation(line.a, line.b - 10);
+
+        return lineBrightness(side1) - lineBrightness(side2);
+    }
+
+    public double lineBrightness(LinearEquation line){
+        Point p;
+        double sum = 0;
+        int samples = 0;
+        for(double i = line.point1.x;i<line.point2.x; i++){
+            p = new Point(i, line.y(i));
+            double[] point = mGrayscale.get((int)Math.round(p.x), (int)Math.round(p.y));
+            if(point != null){
+                sum += point[0];
+                samples++;
+            }
+        }
+
+        return sum / samples;
+    }
+
+    public void drawLanes(Mat frame){
         if(lanesFound()){
-            drawLinearEquation(mLeftLane, new Scalar(250, 0, 0));
-            drawLinearEquation(mRightLane, new Scalar(0, 250, 0));
-            drawLinearEquation(mBisectorLine, new Scalar(0, 0, 250));
+            drawLinearEquation(frame, mLeftLane, new Scalar(250, 0, 0));
+            drawLinearEquation(frame, mRightLane, new Scalar(0, 250, 0));
+            drawLinearEquation(frame, mBisectorLine, new Scalar(0, 0, 250));
+
+            Log.e(LOG_TAG, "Left=" + brightnessDifferenceAroundLine(mLeftLane));
+            Log.e(LOG_TAG, "Right=" + brightnessDifferenceAroundLine(mRightLane));
+            Log.e(LOG_TAG, "Center=" + brightnessDifferenceAroundLine(mBisectorLine));
+
         }
     }
 
-    public void drawLinearEquation(LinearEquation line, Scalar color){
-        double a = line.getA(),
-                b = line.getB(),
+    public void drawLines(Mat frame){
+        for(LinearEquation line: mLinearEquations){
+            drawLinearEquation(frame, line, new Scalar(0, 0, 250));
+        }
+    }
+
+    public void createDisplayFrame(){
+        //mCanny.copyTo(mDisplayFrame);
+        mRgba.copyTo(mDisplayFrame);
+        drawLines(mDisplayFrame);
+        drawLanes(mDisplayFrame);
+    }
+
+    public void drawLinearEquation(Mat frame, LinearEquation line, Scalar color){
+        double a = line.a,
+                b = line.b,
                 y1 = 0,
                 y2 = mRgba.width(),
                 x1 = a * y1 + b,
@@ -163,49 +225,28 @@ public class LaneDetector {
             Point start = new Point(x1, y1);
             Point end = new Point(x2, y2);
 
-            Imgproc.line(mFrameWithLanes,
+            Imgproc.line(frame,
                     start, end,
                     color,
                     4);
         }
     }
 
-    public void calculateAngleBisector(){
-        double a1 = mLeftLane.getA(),
-                b1 = mLeftLane.getB(),
-                a2 = mRightLane.getA(),
-                b2 = mRightLane.getB(),
-                A1 = -a1,
-                A2 = - a2,
-                B12 = 1,
-                C1 = -b1,
-                C2 = -b2,
-                R1 = Math.sqrt(A1 * A1 + 1),
-                R2 = Math.sqrt(A2 * A2 + 1),
-                A = A1 / R1 + A2 / R2,
-                B = B12 / R1 + B12 / R2,
-                C = C1 / R1 + C2 / R2,
-                a = -A/B,
-                b = -C/B;
-
-        mBisectorLine = new LinearEquation(a, b);
-    }
-
     public boolean lanesFound(){
         return mLeftLane != null && mRightLane != null;
     }
 
-    public Mat getFrameWithLanes() {
-        createFrameWithLanes();
-        return mFrameWithLanes;
+    public Mat getDisplayFrame(){
+        createDisplayFrame();
+        return mDisplayFrame;
     }
 
     public LinearEquation getBisectorLine(){
         return mBisectorLine;
     }
 
-    public Mat getTemp(){
-        return mTemp;
+    public Mat getCanny(){
+        return mCanny;
     }
 
 }
