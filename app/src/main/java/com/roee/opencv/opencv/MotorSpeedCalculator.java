@@ -15,15 +15,15 @@ public class MotorSpeedCalculator {
 
     private static final double K_V = 1.2;
     private static final double MAX_SPEED = 2;
-    private static final double K_PROPORTIONAL = 0.2;
-    private static final double K_DERIVATIVE = 0.8;
 
-    public static double mTiltCalibrationValue = 0;
-    public static double mDeviationCalibrationValue = 0;
+    private static final double LINE_HEIGHT = 1/2.5;
 
-    public static final double BASE_SPEED = 1;
-    public static double sLeftSpeed = BASE_SPEED;
-    public static double sRightSpeed = BASE_SPEED;
+    private static double sTiltCalibrationValue = 0;
+    private static double sDeviationCalibrationValue = 0;
+
+    private static final double BASE_SPEED = 1;
+    private static double sLeftSpeed = BASE_SPEED;
+    private static double sRightSpeed = BASE_SPEED;
 
     private int mFramesCount = 0;
 
@@ -37,14 +37,18 @@ public class MotorSpeedCalculator {
         this.lastError = lastError;
     }
 
-    public void addFrameData(LinearEquation bisector){
+    public void addFrameData(LinearEquation[] bisectors){
 
         mFramesCount++;
 
-        mTilt += bisector.a;
-        mDeviation += DrivingActivity.mFrameWidth/2 - bisector.b;
+        for(LinearEquation bisector: bisectors){
+            if(bisector != null){
+                mTilt += bisector.a /2;
+                mDeviation += (DrivingActivity.mFrameWidth/2 - bisector.b) /2;
 
-        mDistance += bisector.distanceFromPoint(new Point(DrivingActivity.mFrameHeight/2, DrivingActivity.mFrameWidth/2));
+                mDistance += bisector.distanceFromPoint(new Point(DrivingActivity.mFrameHeight * LINE_HEIGHT, DrivingActivity.mFrameWidth/2)) /2;
+            }
+        }
 
     }
 
@@ -57,7 +61,7 @@ public class MotorSpeedCalculator {
     * Values should range from -1 to 1, where this function is the most accurate
      */
     public double getCalibratedTilt(){
-        return (mTilt / mFramesCount + mTiltCalibrationValue + getCalibratedDeviation()/5*0.02) * K_TILT;
+        return (mTilt / mFramesCount + sTiltCalibrationValue + getCalibratedDeviation()/5*0.02) * K_TILT;
     }
 
     public double getDeviation(){
@@ -65,7 +69,7 @@ public class MotorSpeedCalculator {
     }
 
     public double getCalibratedDeviation(){
-        return mDeviation / mFramesCount + mDeviationCalibrationValue;
+        return mDeviation / mFramesCount + sDeviationCalibrationValue;
     }
 
     public double getDistance(){
@@ -77,11 +81,11 @@ public class MotorSpeedCalculator {
     }
 
     public static void setTiltCalibrationValue(double mTiltCalibrationValue) {
-        MotorSpeedCalculator.mTiltCalibrationValue = mTiltCalibrationValue;
+        MotorSpeedCalculator.sTiltCalibrationValue = mTiltCalibrationValue;
     }
 
     public static void setDeviationCalibrationValue(double mDeviationCalibrationValue) {
-        MotorSpeedCalculator.mDeviationCalibrationValue = mDeviationCalibrationValue;
+        MotorSpeedCalculator.sDeviationCalibrationValue = mDeviationCalibrationValue;
     }
 
     /**

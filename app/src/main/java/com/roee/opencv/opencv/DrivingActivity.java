@@ -49,7 +49,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     public final String[] statusCodes = {"straight", "preturn left", "preturn right", "turn"};
 
     private Mat mRgba;
-    private Mat mProcessedFrame;
+    private Mat mDisplayFrame;
     private Mat mTemp;
 
     private int mFrameCount = 0;
@@ -430,10 +430,10 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         // Process visual data to find lanes
         mLaneDetector.processFrame(mRgba);
 
-        LinearEquation bisector = mLaneDetector.getBisectorLine();
+        LinearEquation[] bisectors = mLaneDetector.getBisectorLines();
 
-        if(bisector != null){
-            mMotorSpeedCalculator.addFrameData(bisector);
+        if(bisectors[0] != null){
+            mMotorSpeedCalculator.addFrameData(bisectors);
             mFrameCount++;
         }
 
@@ -471,11 +471,11 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
 
 
         // Process preview frame
-        mProcessedFrame = mLaneDetector.getDisplayFrame();
+        mDisplayFrame = mLaneDetector.getDisplayFrame();
 
 
 //        return mLaneDetector.getTemp();
-        return mProcessedFrame;
+        return mDisplayFrame;
     }
 
 }
