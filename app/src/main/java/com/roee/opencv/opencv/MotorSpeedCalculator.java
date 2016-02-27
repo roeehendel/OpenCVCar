@@ -1,7 +1,5 @@
 package com.roee.opencv.opencv;
 
-import org.opencv.core.Point;
-
 /**
  * Created by Roee on 10/10/2015.
  */
@@ -11,12 +9,15 @@ public class MotorSpeedCalculator {
     public static final int RIGHT = 1;
 
     private static final double K_TILT = 0.573;
-    private static final double K_ERROR = 1;
+    private static final double K_ERROR = 1.0/100.0;
 
-    private static final double K_V = 1.2;
+    private static final double K_P = 1.6;
+    private static final double K_D = 1.4;
+
+    private static final double K_V = 1.0;
     private static final double MAX_SPEED = 2;
 
-    private static final double LINE_HEIGHT = 1/2.5;
+    public static final double LINE_HEIGHT = 1.0/2.0;
 
     private static double sTiltCalibrationValue = 0;
     private static double sDeviationCalibrationValue = 0;
@@ -35,6 +36,7 @@ public class MotorSpeedCalculator {
 
     public MotorSpeedCalculator(double lastError){
         this.lastError = lastError;
+        mDistance = 0;
     }
 
     public void addFrameData(LinearEquation[] bisectors){
@@ -46,7 +48,11 @@ public class MotorSpeedCalculator {
                 mTilt += bisector.a /2;
                 mDeviation += (DrivingActivity.mFrameWidth/2 - bisector.b) /2;
 
-                mDistance += bisector.distanceFromPoint(new Point(DrivingActivity.mFrameHeight * LINE_HEIGHT, DrivingActivity.mFrameWidth/2)) /2;
+                if(bisector.edgesCenter().x > DrivingActivity.mFrameHeight / 3){
+                    mDistance += bisector.distanceFromPoint(new Point(DrivingActivity.mFrameHeight * LINE_HEIGHT, DrivingActivity.mFrameWidth/2)) /4;
+                    mDistance += bisector.distanceFromPoint(new Point(DrivingActivity.mFrameHeight * LINE_HEIGHT * 0.5, DrivingActivity.mFrameWidth/2)) /4;
+                }
+
             }
         }
 
@@ -119,7 +125,7 @@ public class MotorSpeedCalculator {
     }
 
     public double correction(){
-        return 1 / (1 + Math.exp(-4 * (error()))) - 0.5;
+        return 1 / (1 + Math.exp(-4 * (K_P * error()))) - 0.5;
     }
 
     public int correctionDirection(){

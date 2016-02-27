@@ -5,17 +5,17 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
 import android.util.Log;
-import android.view.Menu;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,58 +28,50 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
 public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     private static final String TAG = DrivingActivity.class.getSimpleName();
 
-    private int mAccentColorInt;
-    private int[] mAccentColor;
+    public static final int BASE_WIDTH = 352;
+    public static final int BASE_HEIGHT = 288;
 
-    public static final int BASE_WIDTH = 240;
-    public static final int BASE_HEIGHT = 160;
+    public static final double SCALE = 1;
 
-    public static final int SCALE = 1;
+    private static final String PREFS_NAME = "PrefsFile";
+    private static final String POWER_PREF = "power";
 
-    public static int mFrameWidth = BASE_WIDTH * SCALE;
-    public static int mFrameHeight = BASE_HEIGHT * SCALE;
+    public static int mFrameWidth = (int) (BASE_WIDTH * SCALE);
+    public static int mFrameHeight = (int) (BASE_HEIGHT * SCALE);
 
-    public final String[] statusCodes = {"straight", "preturn left", "preturn right", "turn"};
+    public static final boolean useCameraNativeSize = false;
 
     private Mat mRgba;
     private Mat mDisplayFrame;
     private Mat mTemp;
 
     private int mFrameCount = 0;
-    private int mFramesPerCalculation = 4;
-    private int mStatus;
+    private int mFramesPerCalculation = 1;
     private boolean mCalibrateOnNextCalc = false;
+    private int mNotDetectedCount;
 
     private CameraBridgeViewBase mOpenCvCameraView;
 
     private TextView mVerticalLinesTextView;
     private TextView mStatusTextView;
     private TextView mAsymmetryTextView;
+    private TextView mPowerTextView;
 
     private Button mCalibrateButton;
-    private Button mResetButton;
     private Button mStartDriveButton;
     private Button mStopDriveButton;
 
+    private SeekBar mSpeedSeekBar;
+
     private LaneDetector mLaneDetector;
+    private ObstacleDetector mObstacleDetector;
 
     private MotorSpeedCalculator mMotorSpeedCalculator;
 
-    public static int NUMBER_OF_CORES = Runtime.getRuntime().availableProcessors();
-    ThreadPoolExecutor executor = new ThreadPoolExecutor(
-            NUMBER_OF_CORES,
-            NUMBER_OF_CORES,
-            60L,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>()
-    );
+    private SharedPreferences mSharedPreferences;
 
     /*
     * Bluetooth NXT connection
@@ -108,10 +100,13 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     private TextView mStateDisplay;
     private Button mConnectButton;
     private Button mDisconnectButton;
-    private Menu mMenu;
 
-    private int mPower = 20;
+    private int mPower;
     private boolean mDrive = false;
+    private boolean mDriving = false;
+
+    private byte leftSpeed = 0;
+    private byte rightSpeed = 0;
 
     private boolean mReverse;
     private boolean mReverseLR;
@@ -201,16 +196,20 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         Log.i(TAG, "called onCreate");
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
+        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         setContentView(R.layout.detection_preview_view);
 
-        mAccentColorInt = getResources().getColor(R.color.accent_material_light_1);
-        mAccentColor = new int[]{Color.red(mAccentColorInt), Color.green(mAccentColorInt), Color.blue(mAccentColorInt)};
+        mSharedPreferences = getSharedPreferences(PREFS_NAME, 0);
+        mPower = mSharedPreferences.getInt(POWER_PREF, 35);
 
         mVerticalLinesTextView = (TextView) findViewById(R.id.vertical_lanes_text_view);
         mStatusTextView = (TextView) findViewById(R.id.status_text_view);
         mAsymmetryTextView = (TextView) findViewById(R.id.asymmetry_text_view);
+        mPowerTextView = (TextView) findViewById(R.id.power_text_view);
+
+        mPowerTextView.setText(Integer.toString(mPower));
 
         mCalibrateButton = (Button) findViewById(R.id.calibrate_button);
         mCalibrateButton.setOnClickListener(new View.OnClickListener() {
@@ -235,16 +234,39 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             @Override
             public void onClick(View v) {
                 mDrive = false;
+                mNXTTalker.motors((byte)0, (byte)0, mRegulateSpeed, mSynchronizeMotors);
                 MotorSpeedCalculator.resetSpeeds();
                 mStartDriveButton.setVisibility(View.VISIBLE);
                 mStopDriveButton.setVisibility(View.GONE);
             }
         });
 
+        mSpeedSeekBar = (SeekBar) findViewById(R.id.power_seek_bar);
+        mSpeedSeekBar.setProgress(mPower);
+        mSpeedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                mPower = 5*(Math.round(i/5));
+                mPowerTextView.setText(Integer.toString(mPower));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.lane_detection_activity_surface_view);
 
         // Limit frame size for speed.
-        mOpenCvCameraView.setMaxFrameSize(mFrameWidth,mFrameHeight);
+        if(!useCameraNativeSize){
+            mOpenCvCameraView.setMaxFrameSize(mFrameWidth,mFrameHeight);
+        }
 
         mOpenCvCameraView.setCvCameraViewListener(this);
 
@@ -253,6 +275,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
          */
 
         mPowerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        // PowerManager.SCREEN_DIM_WAKE_LOCK replaced with WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         mWakeLock = mPowerManager.newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK | PowerManager.ON_AFTER_RELEASE, "NXT Remote Control");
 
         if (!NO_BT) {
@@ -357,24 +380,23 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         mCalibrateOnNextCalc = true;
     }
 
-    private Handler mTopBarHandler = new Handler();
-
     private double formatForDisplay(double num){
         return Math.round(num * 100.0) / 100.0;
     }
 
-    private Runnable mUpdateTopBarTask = new Runnable() {
-        public void run() {
-            if (mMotorSpeedCalculator != null && mMotorSpeedCalculator.getFramesCount() != 0) {
-                mAsymmetryTextView.setText("Tilt= " + formatForDisplay(mMotorSpeedCalculator.getCalibratedTilt()) + ", Deviation= " + formatForDisplay(mMotorSpeedCalculator.getCalibratedDeviation()) + ", Dist= " +
-                        formatForDisplay(mMotorSpeedCalculator.getDistance()));
-                String displayDirection = (mMotorSpeedCalculator.correctionDirection() == MotorSpeedCalculator.LEFT) ? "Left" : "Right";
-                mVerticalLinesTextView.setText("L: " + formatForDisplay(mMotorSpeedCalculator.getLeftSpeed()) + ", R: " + formatForDisplay(mMotorSpeedCalculator.getRightSpeed()));
-                mStatusTextView.setText("Correction: " + formatForDisplay(mMotorSpeedCalculator.correction()));
+    public void updateTopBar(final MotorSpeedCalculator motorSpeedCalculator) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (motorSpeedCalculator != null && motorSpeedCalculator.getFramesCount() != 0) {
+                    //"Tilt= " + formatForDisplay(motorSpeedCalculator.getCalibratedTilt()) + ", Deviation= " + formatForDisplay(motorSpeedCalculator.getCalibratedDeviation()) +
+                    mAsymmetryTextView.setText("Dist= " + formatForDisplay(motorSpeedCalculator.getDistance()) + ", Drive= " + mDriving);
+                    mVerticalLinesTextView.setText("L= " + formatForDisplay(motorSpeedCalculator.getLeftSpeed()) + ", R= " + formatForDisplay(motorSpeedCalculator.getRightSpeed()));
+                    mStatusTextView.setText("Cor= " + formatForDisplay(motorSpeedCalculator.correction()));
+                }
             }
-            mTopBarHandler.postDelayed(mUpdateTopBarTask, 100);
-        }
-    };
+        });
+    }
 
     @Override
     public void onPause()
@@ -383,8 +405,9 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         if (mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
 
-        mTopBarHandler.removeCallbacks(mUpdateTopBarTask);
-
+        SharedPreferences.Editor editor = mSharedPreferences.edit();
+        editor.putInt(POWER_PREF, mPower);
+        editor.commit();
     }
 
     @Override
@@ -398,9 +421,6 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             Log.d(TAG, "OpenCV library found inside package. Using it!");
             mLoaderCallback.onManagerConnected(LoaderCallbackInterface.SUCCESS);
         }
-
-        mTopBarHandler.removeCallbacks(mUpdateTopBarTask);
-        mTopBarHandler.postDelayed(mUpdateTopBarTask, 100);
     }
 
 
@@ -414,7 +434,10 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         mRgba = new Mat(height, width, CvType.CV_8UC4);
         mTemp = new Mat(height, width, CvType.CV_8UC1);
         mLaneDetector = new LaneDetector();
+        mObstacleDetector = new ObstacleDetector();
         mMotorSpeedCalculator = new MotorSpeedCalculator(0);
+        mFrameHeight = height;
+        mFrameWidth = width;
     }
 
     public void onCameraViewStopped() {
@@ -429,12 +452,30 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
 
         // Process visual data to find lanes
         mLaneDetector.processFrame(mRgba);
+        // Detect obstacles
+        mObstacleDetector.processFrame(mLaneDetector.getCanny());
+
+        //Log.e(TAG, "onCameraFrame: " + mObstacleDetector.obstacleDetected());
+
+        mDriving = mDrive && !mObstacleDetector.obstacleDetected();
+
+        if(!mDriving){
+            leftSpeed = (byte) (0);
+            rightSpeed = (byte) (0);
+        }
 
         LinearEquation[] bisectors = mLaneDetector.getBisectorLines();
 
         if(bisectors[0] != null){
             mMotorSpeedCalculator.addFrameData(bisectors);
             mFrameCount++;
+        }else{
+            mNotDetectedCount++;
+            if(mNotDetectedCount > 5){
+                mNotDetectedCount = 0;
+                leftSpeed = (byte) (0);
+                rightSpeed = (byte) (0);
+            }
         }
 
         if (mFrameCount == mFramesPerCalculation) {
@@ -452,25 +493,24 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             // Calculate speeds
             mMotorSpeedCalculator.calculateSpeeds();
 
-            byte l;
-            byte r;
 
-            if (mDrive) {
-                l = (byte) (mPower * mMotorSpeedCalculator.getLeftSpeed());
-                r = (byte) (mPower * mMotorSpeedCalculator.getRightSpeed());
-            } else {
-                l = (byte) (0);
-                r = (byte) (0);
+            if (mDriving) {
+                leftSpeed = (byte) (mPower * mMotorSpeedCalculator.getLeftSpeed());
+                rightSpeed = (byte) (mPower * mMotorSpeedCalculator.getRightSpeed());
+            }else {
+                leftSpeed = (byte) (0);
+                rightSpeed = (byte) (0);
             }
 
-            mNXTTalker.motors(l, r, mRegulateSpeed, mSynchronizeMotors);
+            updateTopBar(mMotorSpeedCalculator);
 
             mMotorSpeedCalculator = new MotorSpeedCalculator(mMotorSpeedCalculator.error());
 
         }
 
+        mNXTTalker.motors(leftSpeed, rightSpeed, mRegulateSpeed, mSynchronizeMotors);
 
-        // Process preview frame
+        // Generate preview frame
         mDisplayFrame = mLaneDetector.getDisplayFrame();
 
 
