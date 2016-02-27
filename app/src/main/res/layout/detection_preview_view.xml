@@ -52,7 +52,7 @@
 
         <org.opencv.android.JavaCameraView
             android:id="@+id/lane_detection_activity_surface_view"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="fill_parent"
             app:show_fps="true"
             android:layout_weight="1" />
@@ -60,8 +60,7 @@
         <LinearLayout
             android:orientation="vertical"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:background="@color/background_material_light">
+            android:layout_height="match_parent">
 
             <Button
                 style="@android:style/Widget.Material.Button"
@@ -70,7 +69,8 @@
                 android:layout_height="48dp"
                 android:layout_marginBottom="8dp"
                 android:text="@string/calibrate"
-                tools:ignore="NewApi" />
+                tools:ignore="NewApi"
+                android:visibility="gone"/>
 
             <Button
                 style="@android:style/Widget.Material.Button"
@@ -109,6 +109,21 @@
                 android:text="@string/stop"
                 android:visibility="gone"
                 tools:ignore="NewApi"/>
+
+            <SeekBar
+                android:id="@+id/power_seek_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:indeterminate="false"
+                android:max="100" />
+
+            <TextView
+                android:id="@+id/power_text_view"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="New Text"
+                android:gravity="center" />
+
 
         </LinearLayout>
 
