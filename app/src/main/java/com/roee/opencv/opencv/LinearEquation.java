@@ -1,6 +1,6 @@
 package com.roee.opencv.opencv;
 
-import org.opencv.core.Point;
+import org.opencv.core.Rect;
 
 /**
  * Created by Roee on 24/12/2015.
@@ -10,34 +10,46 @@ public class LinearEquation {
     public double b;
     public Point point1;
     public Point point2;
+    public Point edge1;
+    public Point edge2;
 
 
     public LinearEquation(double a, double b){
         this.a = a;
         this.b = b;
-        point1 = new Point(0, y(0));
-        point2 = new Point(DrivingActivity.mFrameHeight, y(DrivingActivity.mFrameHeight));
+        calcEdges();
+        point1 = edge1;
+        point2 = edge2;
+    }
+
+    public LinearEquation(double a, double b, Point center){
+        this.a = a;
+        this.b = b;
+        calcEdges();
+        point1 = center;
+        point2 = center;
     }
 
     public LinearEquation(double x1, double y1, double x2, double y2) {
         createFromPoints(x1, y1, x2, y2);
-
-        this.point1 = new Point(x1, y1);
-        this.point2 = new Point(x2, y2);
+        calcEdges();
+        point1 = new Point(x1, y1);
+        point2 = new Point(x2, y2);
     }
 
-    public LinearEquation(Point p1, Point p2){
-        createFromPoints(p1.x, p1.y, p2.x, p2.y);
-
-        this.point1 = p1;
-        this.point2 = p2;
-    }
-
-    public LinearEquation(double a, Point p){
-        double b = p.y - a * p.x;
-        this.a = a;
-        this.b = b;
-    }
+//
+//    public LinearEquation(Point p1, Point p2){
+//        createFromPoints(p1.x, p1.y, p2.x, p2.y);
+//
+//        this.point1 = p1;
+//        this.point2 = p2;
+//    }
+//
+//    public LinearEquation(double a, Point p){
+//        double b = p.y - a * p.x;
+//        this.a = a;
+//        this.b = b;
+//    }
 
     private void createFromPoints(double x1, double y1, double x2, double y2){
         // Find the linear equation parameters (y = a*x + b)
@@ -52,13 +64,51 @@ public class LinearEquation {
         return a * x + b;
     }
 
+    public double x(double y) {
+        return (y - b) / a;
+    }
+
     public double distanceFromPoint(Point p){
-        double d = (-a * p.x + p.y - b) / Math.sqrt(Math.pow(a ,2) + Math.pow(b ,2));
+        double d = (-a * p.x + p.y - b) / Math.sqrt(Math.pow(a ,2) + Math.pow(1 ,2));
         return d;
     }
 
     public Point center(){
         return new Point((point1.x + point2.x) / 2, (point1.y + point2.y) / 2);
+    }
+
+    public Point edgesCenter(){
+        return Point.center(edge1, edge2);
+    }
+
+    public void calcEdges(){
+        Point[] edges = new Point[2];
+        int[] xEdges = {0, DrivingActivity.mFrameHeight};
+        int[] yEdges = {0, DrivingActivity.mFrameWidth};
+        Rect screenRect = new Rect(0, 0, DrivingActivity.mFrameHeight + 1, DrivingActivity.mFrameWidth + 1);
+        int index = 0;
+        for(int i=0;index<2&&i<2;i++){
+            Point p = new Point(xEdges[i], y(xEdges[i]));
+            if(p.inside(screenRect)){
+                edges[index] = p;
+                index++;
+            }
+        }
+        for(int i=0;index<2&&i<2;i++){
+            Point p = new Point(x(yEdges[i]), yEdges[i]);
+            if(p.inside(screenRect)){
+                edges[index] = p;
+                index++;
+            }
+        }
+
+        edge1 = (edges[0] != null) ? edges[0] : new Point(0, y(0));
+        edge2 = (edges[1] != null) ? edges[1] : new Point(DrivingActivity.mFrameHeight, y(DrivingActivity.mFrameHeight));
+
+    }
+
+    public double length() {
+        return point1.distance(point2);
     }
 
     public LinearEquation normal(Point p){
@@ -94,7 +144,6 @@ public class LinearEquation {
         return new LinearEquation(a, b);
     }
 
-    public double length() {
-        return Math.sqrt(Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2));
-    }
+
+
 }
