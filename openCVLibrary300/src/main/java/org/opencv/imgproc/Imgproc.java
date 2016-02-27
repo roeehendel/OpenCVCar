@@ -2821,7 +2821,7 @@ public class Imgproc {
         
         return;
     }
-
+//
 
     //
     // C++:  void ellipse(Mat& img, Point center, Size axes, double angle, double startAngle, double endAngle, Scalar color, int thickness = 1, int lineType = LINE_8, int shift = 0)
