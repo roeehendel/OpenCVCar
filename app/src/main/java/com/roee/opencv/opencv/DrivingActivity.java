@@ -50,7 +50,6 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
 
     private int mFrameCount = 0;
     private int mFramesPerCalculation = 1;
-    private boolean mCalibrateOnNextCalc = false;
     private int mNotDetectedCount;
 
     private CameraBridgeViewBase mOpenCvCameraView;
@@ -60,7 +59,6 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     private TextView mAsymmetryTextView;
     private TextView mPowerTextView;
 
-    private Button mCalibrateButton;
     private Button mStartDriveButton;
     private Button mStopDriveButton;
 
@@ -129,6 +127,9 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         }
     };
 
+    /**
+     *
+     */
     private void displayState() {
         String stateText = null;
         int color = 0;
@@ -186,11 +187,10 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         }
     };
 
-    public DrivingActivity() {
-        Log.i(TAG, "Instantiated new " + TAG);
-    }
-
-    /** Called when the activity is first created. */
+    /**
+     * Called when the activity is created
+     * @param savedInstanceState
+     */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Log.i(TAG, "called onCreate");
@@ -210,14 +210,6 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         mPowerTextView = (TextView) findViewById(R.id.power_text_view);
 
         mPowerTextView.setText(Integer.toString(mPower));
-
-        mCalibrateButton = (Button) findViewById(R.id.calibrate_button);
-        mCalibrateButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                calibrateAsymmetry();
-            }
-        });
 
         mStartDriveButton = (Button) findViewById(R.id.start_drive_button);
         mStartDriveButton.setOnClickListener(new View.OnClickListener() {
@@ -315,6 +307,9 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
 
     }
 
+    /**
+     * Called when the activity is started
+     */
     @Override
     protected void onStart() {
         super.onStart();
@@ -331,14 +326,20 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         }
     }
 
-    /*
-    * Starts bluetooth device selection activity
+    /**
+     * Starts bluetooth device selection activity (ChooseDeviceActivity)
      */
     private void findBrick() {
         Intent intent = new Intent(this, ChooseDeviceActivity.class);
         startActivityForResult(intent, REQUEST_CONNECT_DEVICE);
     }
 
+    /**
+     * Called when ChooseDeviceActivity exists with a result
+     * @param requestCode
+     * @param resultCode
+     * @param data
+     */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
@@ -365,6 +366,9 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         }
     }
 
+    /**
+     * Called when the activity is stopped
+     */
     @Override
     protected void onStop() {
         super.onStop();
@@ -376,20 +380,26 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         }
     }
 
-    private void calibrateAsymmetry() {
-        mCalibrateOnNextCalc = true;
-    }
 
+    /**
+     * Formats a double number for display
+     * It rounds the number and leaves two decimal placed after the dot
+     * @param num
+     * @return
+     */
     private double formatForDisplay(double num){
         return Math.round(num * 100.0) / 100.0;
     }
 
+    /**
+     * Updates the top bar with data from the MotorSpeedCalculator
+     * @param motorSpeedCalculator
+     */
     public void updateTopBar(final MotorSpeedCalculator motorSpeedCalculator) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 if (motorSpeedCalculator != null && motorSpeedCalculator.getFramesCount() != 0) {
-                    //"Tilt= " + formatForDisplay(motorSpeedCalculator.getCalibratedTilt()) + ", Deviation= " + formatForDisplay(motorSpeedCalculator.getCalibratedDeviation()) +
                     mAsymmetryTextView.setText("Dist= " + formatForDisplay(motorSpeedCalculator.getDistance()) + ", Drive= " + mDriving);
                     mVerticalLinesTextView.setText("L= " + formatForDisplay(motorSpeedCalculator.getLeftSpeed()) + ", R= " + formatForDisplay(motorSpeedCalculator.getRightSpeed()));
                     mStatusTextView.setText("Cor= " + formatForDisplay(motorSpeedCalculator.correction()));
@@ -398,6 +408,9 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         });
     }
 
+    /**
+     * Called when the activity is paused
+     */
     @Override
     public void onPause()
     {
@@ -410,6 +423,9 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         editor.commit();
     }
 
+    /**
+     * Called when the activity is resumed
+     */
     @Override
     public void onResume()
     {
@@ -423,13 +439,22 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         }
     }
 
-
+    /**
+     * Called when the activity is destroyed
+     */
     public void onDestroy() {
         super.onDestroy();
         if (mOpenCvCameraView != null)
             mOpenCvCameraView.disableView();
     }
 
+    /**
+     * Called once when the camera view is started
+     * Initiates image matrices and other objects and values
+     * @param width -  the width of the frames that will be delivered
+     * @param height - the height of the frames that will be delivered
+     */
+    @Override
     public void onCameraViewStarted(int width, int height) {
         mRgba = new Mat(height, width, CvType.CV_8UC4);
         mTemp = new Mat(height, width, CvType.CV_8UC1);
@@ -440,13 +465,24 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         mFrameWidth = width;
     }
 
+    /**
+     * Called once when the camera view is stopped
+     * Releases the memory used by the matrices
+     */
+    @Override
     public void onCameraViewStopped() {
         mRgba.release();
         mTemp.release();
     }
 
 
-
+    /**
+     * Called each time a frame is received from the camera.
+     * Uses detectors to process the frame and determine the speeds of the motors.
+     * Finally, sends the speeds to the NXT using NXTTalker.
+     * @param inputFrame
+     * @return
+     */
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
 
@@ -483,13 +519,6 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             // Reset frame counter
             mFrameCount = 0;
 
-            // Do a calibration if it was requested
-            if (mCalibrateOnNextCalc) {
-                mCalibrateOnNextCalc = false;
-                MotorSpeedCalculator.setTiltCalibrationValue(-mMotorSpeedCalculator.getTilt());
-                MotorSpeedCalculator.setDeviationCalibrationValue(-mMotorSpeedCalculator.getDeviation());
-            }
-
             // Calculate speeds
             mMotorSpeedCalculator.calculateSpeeds();
 
@@ -502,12 +531,14 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
                 rightSpeed = (byte) (0);
             }
 
+            // Update the top bar with the frame's MotorSpeedCalculator
             updateTopBar(mMotorSpeedCalculator);
 
             mMotorSpeedCalculator = new MotorSpeedCalculator(mMotorSpeedCalculator.error());
 
         }
 
+        // Sends speeds to the NXT
         mNXTTalker.motors(leftSpeed, rightSpeed, mRegulateSpeed, mSynchronizeMotors);
 
         // Generate preview frame

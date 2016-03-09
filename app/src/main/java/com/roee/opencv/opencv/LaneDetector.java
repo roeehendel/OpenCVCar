@@ -151,7 +151,7 @@ public class LaneDetector {
 
                 if((intersection.x < 0 - pf || intersection.x > mRgba.height() + pf) || (intersection.y < 0 - pf || intersection.y > mRgba.width() + pf)) {
                     if(intersection.x < 0 && Math.abs(intersection.x) < 400) {
-                        if(brightnessDifferenceFits(line1, line2)){
+                        if(brightnessDifferenceQualifies(line1, line2)){
                             return true;
                         }
                     }
@@ -192,7 +192,7 @@ public class LaneDetector {
 
     }
 
-    public boolean brightnessDifferenceFits(LinearEquation line1, LinearEquation line2){
+    public boolean brightnessDifferenceQualifies(LinearEquation line1, LinearEquation line2){
         double b1 = Math.abs(brightnessDifferenceAroundLine(line1));
         double b2 = Math.abs(brightnessDifferenceAroundLine(line2));
         return Math.abs(b1) > BRIGHTNESS_DIFFERENCE_THRESHOLD && Math.abs(b2) > BRIGHTNESS_DIFFERENCE_THRESHOLD && Math.abs(Math.abs(b1)-Math.abs(b2)) < 20;
