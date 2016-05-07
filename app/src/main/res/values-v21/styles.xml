@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="AutoCarAppTheme" parent="@android:style/Theme.Material.Light" >
+    <style name="AutoCarAppTheme" parent="@android:style/Theme.Material.Light">
         <item name="android:colorAccent">@color/accent_material_light_1</item>
         <item name="android:statusBarColor">@color/statusBarColor</item>
     </style>

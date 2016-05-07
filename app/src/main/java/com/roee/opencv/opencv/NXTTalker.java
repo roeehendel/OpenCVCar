@@ -56,6 +56,10 @@ public class NXTTalker {
         setState(STATE_NONE);
     }
 
+    public synchronized int getState() {
+        return mState;
+    }
+
     private synchronized void setState(int state) {
         mState = state;
         if (mHandler != null) {
@@ -63,10 +67,6 @@ public class NXTTalker {
         } else {
             //XXX
         }
-    }
-
-    public synchronized int getState() {
-        return mState;
     }
 
     public synchronized void setHandler(Handler handler) {
@@ -148,8 +148,8 @@ public class NXTTalker {
     }
 
     public void motors(byte l, byte r, boolean speedReg, boolean motorSync) {
-        byte[] data = { 0x0c, 0x00, (byte) 0x80, 0x04, 0x02, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00,
-                0x0c, 0x00, (byte) 0x80, 0x04, 0x01, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00 };
+        byte[] data = {0x0c, 0x00, (byte) 0x80, 0x04, 0x02, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00,
+                0x0c, 0x00, (byte) 0x80, 0x04, 0x01, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00};
 
         //Log.i("NXT", "motors: " + Byte.toString(l) + ", " + Byte.toString(r));
 
@@ -167,7 +167,7 @@ public class NXTTalker {
     }
 
     public void motor(int motor, byte power, boolean speedReg, boolean motorSync) {
-        byte[] data = { 0x0c, 0x00, (byte) 0x80, 0x04, 0x02, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00 };
+        byte[] data = {0x0c, 0x00, (byte) 0x80, 0x04, 0x02, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00};
 
         //Log.i("NXT", "motor: " + Integer.toString(motor) + ", " + Byte.toString(power));
 
@@ -187,9 +187,9 @@ public class NXTTalker {
     }
 
     public void motors3(byte l, byte r, byte action, boolean speedReg, boolean motorSync) {
-        byte[] data = { 0x0c, 0x00, (byte) 0x80, 0x04, 0x02, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00,
+        byte[] data = {0x0c, 0x00, (byte) 0x80, 0x04, 0x02, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00,
                 0x0c, 0x00, (byte) 0x80, 0x04, 0x01, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00,
-                0x0c, 0x00, (byte) 0x80, 0x04, 0x00, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00 };
+                0x0c, 0x00, (byte) 0x80, 0x04, 0x00, 0x32, 0x07, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00};
 
         //Log.i("NXT", "motors3: " + Byte.toString(l) + ", " + Byte.toString(r) + ", " + Byte.toString(action));
 
@@ -219,8 +219,8 @@ public class NXTTalker {
     }
 
     private class ConnectThread extends Thread {
-        private BluetoothSocket mmSocket;
         private final BluetoothDevice mmDevice;
+        private BluetoothSocket mmSocket;
 
         public ConnectThread(BluetoothDevice device) {
             mmDevice = device;
@@ -238,7 +238,7 @@ public class NXTTalker {
                 try {
                     // This is a workaround that reportedly helps on some older devices like HTC Desire, where using
                     // the standard createRfcommSocketToServiceRecord() method always causes connect() to fail.
-                    Method method = mmDevice.getClass().getMethod("createRfcommSocket", new Class[] { int.class });
+                    Method method = mmDevice.getClass().getMethod("createRfcommSocket", new Class[]{int.class});
                     mmSocket = (BluetoothSocket) method.invoke(mmDevice, Integer.valueOf(1));
                     mmSocket.connect();
                 } catch (Exception e1) {

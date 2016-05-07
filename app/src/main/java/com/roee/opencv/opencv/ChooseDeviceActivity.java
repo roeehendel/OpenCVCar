@@ -39,7 +39,42 @@ public class ChooseDeviceActivity extends Activity {
 
     private ArrayAdapter<String> mPairedDevicesArrayAdapter;
     private ArrayAdapter<String> mNewDevicesArrayAdapter;
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+
+            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if ((device.getBondState() != BluetoothDevice.BOND_BONDED) &&
+                        (device.getBluetoothClass().getDeviceClass()
+                                == BluetoothClass.Device.TOY_ROBOT)) {
+                    mNewDevicesArrayAdapter.add(device.getName() + "\n" + device.getAddress());
+                    findViewById(R.id.title_new_devices).setVisibility(View.VISIBLE);
+                    findViewById(R.id.no_devices).setVisibility(View.GONE);
+                }
+            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                setProgressBarIndeterminateVisibility(false);
+                setTitle("Select device");
+                findViewById(R.id.button_scan).setVisibility(View.VISIBLE);
+            }
+        }
+    };
     private BluetoothAdapter mBtAdapter;
+    private OnItemClickListener mDeviceClickListener = new OnItemClickListener() {
+        public void onItemClick(AdapterView<?> av, View v, int arg2, long arg3) {
+            mBtAdapter.cancelDiscovery();
+
+            String info = ((TextView) v).getText().toString();
+            String address = info.substring(info.length() - 17);
+
+            Intent intent = new Intent();
+            intent.putExtra(EXTRA_DEVICE_ADDRESS, address);
+
+            setResult(Activity.RESULT_OK, intent);
+            finish();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -80,7 +115,9 @@ public class ChooseDeviceActivity extends Activity {
 
         if (pairedDevices.size() > 0) {
             for (BluetoothDevice device : pairedDevices) {
-                if ((device.getBluetoothClass() != null) && (device.getBluetoothClass().getDeviceClass() == BluetoothClass.Device.TOY_ROBOT)) {
+                if ((device.getBluetoothClass() != null) &&
+                        (device.getBluetoothClass().getDeviceClass()
+                                == BluetoothClass.Device.TOY_ROBOT)) {
                     mPairedDevicesArrayAdapter.add(device.getName() + "\n" + device.getAddress());
                     empty = false;
                 }
@@ -121,39 +158,4 @@ public class ChooseDeviceActivity extends Activity {
             findViewById(R.id.no_devices).setVisibility(View.VISIBLE);
         }
     }
-
-    private OnItemClickListener mDeviceClickListener = new OnItemClickListener() {
-        public void onItemClick(AdapterView<?> av, View v, int arg2, long arg3) {
-            mBtAdapter.cancelDiscovery();
-
-            String info = ((TextView) v).getText().toString();
-            String address = info.substring(info.length() - 17);
-
-            Intent intent = new Intent();
-            intent.putExtra(EXTRA_DEVICE_ADDRESS, address);
-
-            setResult(Activity.RESULT_OK, intent);
-            finish();
-        }
-    };
-
-    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-
-            if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if ((device.getBondState() != BluetoothDevice.BOND_BONDED) && (device.getBluetoothClass().getDeviceClass() == BluetoothClass.Device.TOY_ROBOT)) {
-                    mNewDevicesArrayAdapter.add(device.getName() + "\n" + device.getAddress());
-                    findViewById(R.id.title_new_devices).setVisibility(View.VISIBLE);
-                    findViewById(R.id.no_devices).setVisibility(View.GONE);
-                }
-            } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
-                setProgressBarIndeterminateVisibility(false);
-                setTitle("Select device");
-                findViewById(R.id.button_scan).setVisibility(View.VISIBLE);
-            }
-        }
-    };
 }

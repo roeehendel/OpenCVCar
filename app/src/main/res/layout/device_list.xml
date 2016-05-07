@@ -1,26 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-  xmlns:android="http://schemas.android.com/apk/res/android"
-  android:orientation="vertical" android:layout_height="fill_parent" android:layout_width="fill_parent">
-<TextView android:layout_height="wrap_content" android:text="Paired devices:" android:id="@+id/title_paired_devices" android:layout_width="fill_parent" android:visibility="gone"
-        android:textColor="#fff"
-        android:paddingLeft="5dp"></TextView>
-<ListView
-    android:layout_height="wrap_content"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="fill_parent"
-    android:id="@+id/paired_devices"></ListView>
+    android:layout_height="fill_parent"
+    android:orientation="vertical">
 
     <TextView
-        android:layout_height="wrap_content"
+        android:id="@+id/title_paired_devices"
         android:layout_width="fill_parent"
-        android:id="@+id/title_new_devices"
-        android:visibility="gone"
-        android:background="#666"
+        android:layout_height="wrap_content"
+        android:paddingLeft="5dp"
+        android:text="Paired devices:"
         android:textColor="#fff"
-        android:paddingLeft="5dp" android:text="Devices found:">
-    </TextView>
+        android:visibility="gone"></TextView>
 
-<ListView android:layout_height="wrap_content" android:layout_width="fill_parent" android:id="@+id/new_devices"></ListView>
-<TextView android:layout_height="wrap_content" android:id="@+id/no_devices" android:text="No devices" android:textSize="18sp" android:gravity="center" android:layout_width="fill_parent"></TextView><Button android:layout_height="wrap_content" android:id="@+id/button_scan" android:layout_width="fill_parent" android:text="Scan"></Button>
+    <ListView
+        android:id="@+id/paired_devices"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"></ListView>
+
+    <TextView
+        android:id="@+id/title_new_devices"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:background="#666"
+        android:paddingLeft="5dp"
+        android:text="Devices found:"
+        android:textColor="#fff"
+        android:visibility="gone"></TextView>
+
+    <ListView
+        android:id="@+id/new_devices"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"></ListView>
+
+    <TextView
+        android:id="@+id/no_devices"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="No devices"
+        android:textSize="18sp"></TextView>
+
+    <Button
+        android:id="@+id/button_scan"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:text="Scan"></Button>
 
 </LinearLayout>

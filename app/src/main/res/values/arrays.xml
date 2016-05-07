@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="preview_image_array">
+        <item>Grayscale</item>
+        <item>Canny</item>
+        <item>Hough</item>
+        <item>Final</item>
+    </string-array>
+</resources>
