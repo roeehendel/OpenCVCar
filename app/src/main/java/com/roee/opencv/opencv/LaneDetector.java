@@ -24,6 +24,7 @@ public class LaneDetector {
     private static LinearEquation[] mBisectorLines = new LinearEquation[2];
     private Mat mRgba;
     private Mat mGrayscale;
+    private Mat mHough;
     private Mat mDisplayFrame;
     private Mat mLines;
     private Mat mCanny;
@@ -33,10 +34,11 @@ public class LaneDetector {
     public LaneDetector() {
         mRgba = new Mat();
         mLines = new Mat();
-        mLinearEquations = new ArrayList<LinearEquation>();
+        mLinearEquations = new ArrayList<>();
         mGrayscale = new Mat();
         mDisplayFrame = new Mat();
         mCanny = new Mat();
+        mHough = new Mat();
     }
 
     public void processFrame(Mat frame) {
@@ -270,7 +272,7 @@ public class LaneDetector {
 //        mCanny.copyTo(mDisplayFrame);
         mRgba.copyTo(mDisplayFrame);
         //mGrayscale.copyTo(mDisplayFrame);
-        drawOriginalLines(mDisplayFrame);
+//        drawOriginalLines(mDisplayFrame);
         //drawLines(mDisplayFrame);
         drawLanes(mDisplayFrame);
         Imgproc.circle(mDisplayFrame, new Point(DrivingActivity.mFrameWidth / 2, DrivingActivity.mFrameHeight * MotorSpeedCalculator.LINE_HEIGHT), 5, new Scalar(250, 250, 250));
@@ -315,6 +317,16 @@ public class LaneDetector {
 
     public Mat getCanny() {
         return mCanny;
+    }
+
+    public Mat getGrayscale() {
+        return mGrayscale;
+    }
+
+    public Mat getHough() {
+        mRgba.copyTo(mHough);
+        drawOriginalLines(mHough);
+        return mHough;
     }
 
     public LinearEquation[] getBisectorLines() {

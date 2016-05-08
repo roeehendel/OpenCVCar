@@ -14,8 +14,11 @@ import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,10 +32,10 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 public class DrivingActivity extends Activity implements CvCameraViewListener2 {
-    public static final int BASE_WIDTH = 352;
-    public static final int BASE_HEIGHT = 288;
+    public static final int BASE_WIDTH = 352 / 2;
+    public static final int BASE_HEIGHT = 288 / 2;
     public static final double SCALE = 1;
-    public static final boolean useCameraNativeSize = false;
+    public static final boolean USE_CAMERA_NATIVE_SIZE = false;
     public static final int MESSAGE_TOAST = 1;
     public static final int MESSAGE_STATE_CHANGE = 2;
     public static final String TOAST = "toast";
@@ -57,7 +60,16 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     private TextView mAsymmetryTextView;
     private TextView mPowerTextView;
     private Button mStartDriveButton;
-//    private Spinner mPreviewImageSpinner;
+    private Spinner mPreviewImageSpinner;
+
+    private enum PreviewImageType {
+        GRAYSCALE,
+        CANNY,
+        HOUGH,
+        FINAL
+    }
+
+    private PreviewImageType mPreviewImageType;
 
     /*
     * Bluetooth NXT connection
@@ -237,21 +249,33 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             }
         });
 
-//        mPreviewImageSpinner = (Spinner) findViewById(R.id.preview_image_spinner);
-//
-//        // Create an ArrayAdapter using the string array and a default spinner layout
-//        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
-//                R.array.preview_image_array, android.R.layout.simple_spinner_item);
-//        // Specify the layout to use when the list of choices appears
-//        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-//        // Apply the adapter to the spinner
-//        mPreviewImageSpinner.setAdapter(adapter);
+        mPreviewImageSpinner = (Spinner) findViewById(R.id.preview_image_spinner);
+
+        // Create an ArrayAdapter using the string array and a default spinner layout
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.preview_image_array, android.R.layout.simple_spinner_item);
+        // Specify the layout to use when the list of choices appears
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        // Apply the adapter to the spinner
+        mPreviewImageSpinner.setAdapter(adapter);
+
+        mPreviewImageSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int pos, long id) {
+                mPreviewImageType = PreviewImageType.values()[pos];
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+
+            }
+        });
 
         mOpenCvCameraView = (CameraBridgeViewBase) findViewById(
                 R.id.lane_detection_activity_surface_view);
 
         // Limit frame size for speed.
-        if (!useCameraNativeSize) {
+        if (!USE_CAMERA_NATIVE_SIZE) {
             mOpenCvCameraView.setMaxFrameSize(mFrameWidth, mFrameHeight);
         }
 
@@ -548,7 +572,20 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         mNXTTalker.motors(leftSpeed, rightSpeed, mRegulateSpeed, mSynchronizeMotors);
 
         // Generate preview frame
-        mDisplayFrame = mLaneDetector.getDisplayFrame();
+        switch (mPreviewImageType){
+            case GRAYSCALE:
+                mDisplayFrame = mLaneDetector.getGrayscale();
+                break;
+            case CANNY:
+                mDisplayFrame = mLaneDetector.getCanny();
+                break;
+            case HOUGH:
+                mDisplayFrame = mLaneDetector.getHough();
+                break;
+            default:
+                mDisplayFrame = mLaneDetector.getDisplayFrame();
+                break;
+        }
 
 
 //        return mLaneDetector.getTemp();
