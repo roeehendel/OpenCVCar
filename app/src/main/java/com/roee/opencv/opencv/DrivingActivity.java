@@ -140,7 +140,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     };
 
     /**
-     *
+     * Displays Bluetooth connection state
      */
     private void displayState() {
         String stateText = null;
@@ -183,8 +183,6 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
 
     /**
      * Called when the activity is created
-     *
-     * @param savedInstanceState
      */
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -355,10 +353,6 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
 
     /**
      * Called when ChooseDeviceActivity exists with a result
-     *
-     * @param requestCode
-     * @param resultCode
-     * @param data
      */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -407,8 +401,8 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
      * Formats a double number for display
      * It rounds the number and leaves two decimal placed after the dot
      *
-     * @param num
-     * @return
+     * @param num original number
+     * @return number formatted for display
      */
     private double formatForDisplay(double num) {
         return Math.round(num * 100.0) / 100.0;
@@ -417,7 +411,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
     /**
      * Updates the top bar with data from the MotorSpeedCalculator
      *
-     * @param motorSpeedCalculator
+     * @param motorSpeedCalculator the MotorSpeedCalculator from which to get data to display
      */
     public void updateTopBar(final MotorSpeedCalculator motorSpeedCalculator) {
         runOnUiThread(new Runnable() {
@@ -425,13 +419,19 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             public void run() {
                 if (motorSpeedCalculator != null && motorSpeedCalculator.getFramesCount() != 0) {
                     mAsymmetryTextView.setText(
-                            "Dist= " + formatForDisplay(motorSpeedCalculator.getDistance())
-                                    + ", Drive= " + mDriving);
+                            String.format("Dist= %s, Drive= %s",
+                                    formatForDisplay(motorSpeedCalculator.getDistance()),
+                                    mDriving
+                            ));
                     mVerticalLinesTextView.setText(
-                            "L= " + formatForDisplay(motorSpeedCalculator.getLeftSpeed()) + ", R= "
-                                    + formatForDisplay(motorSpeedCalculator.getRightSpeed()));
+                            String.format("L= %s, R= %s",
+                                    formatForDisplay(motorSpeedCalculator.getLeftSpeed()),
+                                    formatForDisplay(motorSpeedCalculator.getRightSpeed())
+                            ));
                     mStatusTextView.setText(
-                            "Cor= " + formatForDisplay(motorSpeedCalculator.correction()));
+                            String.format("Cor= %s",
+                                    formatForDisplay(motorSpeedCalculator.correction())
+                            ));
                 }
             }
         });
@@ -489,7 +489,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
         mTemp = new Mat(height, width, CvType.CV_8UC1);
         mLaneDetector = new LaneDetector();
         mObstacleDetector = new ObstacleDetector();
-        mMotorSpeedCalculator = new MotorSpeedCalculator(0);
+        mMotorSpeedCalculator = new MotorSpeedCalculator();
         mFrameHeight = height;
         mFrameWidth = width;
     }
@@ -510,8 +510,8 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
      * Uses detectors to process the frame and determine the speeds of the motors.
      * Finally, sends the speeds to the NXT using NXTTalker.
      *
-     * @param inputFrame
-     * @return
+     * @param inputFrame raw camera frame
+     * @return frame to display as preview
      */
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
@@ -564,7 +564,7 @@ public class DrivingActivity extends Activity implements CvCameraViewListener2 {
             // Update the top bar with the frame's MotorSpeedCalculator
             updateTopBar(mMotorSpeedCalculator);
 
-            mMotorSpeedCalculator = new MotorSpeedCalculator(mMotorSpeedCalculator.error());
+            mMotorSpeedCalculator = new MotorSpeedCalculator();
 
         }
 

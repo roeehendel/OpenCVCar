@@ -51,12 +51,24 @@ public class LinearEquation {
 //        this.b = b;
 //    }
 
+    /**
+     * Finds the intersection point of two lines
+     * @param line1 first line
+     * @param line2 second line
+     * @return intersection point
+     */
     public static Point intersect(LinearEquation line1, LinearEquation line2) {
         double x = (line1.b - line2.b) / (line2.a - line1.a),
                 y = line1.a * x + line1.b;
         return new Point(x, y);
     }
 
+    /**
+     * Receives two lines and calculate an angle bisector
+     * @param line1 first line
+     * @param line2 second line
+     * @return bisector line
+     */
     public static LinearEquation calculateAngleBisector(LinearEquation line1, LinearEquation line2) {
         double a1 = line1.a,
                 b1 = line1.b,
@@ -87,27 +99,53 @@ public class LinearEquation {
         this.b = b;
     }
 
+    /**
+     * Returns the value of y by x
+     * @param x
+     * @return y
+     */
     public double y(double x) {
         return a * x + b;
     }
 
+    /**
+     * Returns the value of x by y
+     * @param y
+     * @return x
+     */
     public double x(double y) {
         return (y - b) / a;
     }
 
+    /**
+     * Returns the euclidean distance of the line from a point
+     * @param p point
+     * @return euclidean distance
+     */
     public double distanceFromPoint(Point p) {
         double d = (-a * p.x + p.y - b) / Math.sqrt(Math.pow(a, 2) + Math.pow(1, 2));
         return d;
     }
 
+    /**
+     * Returns the center of the line
+     * @return the center point
+     */
     public Point center() {
         return new Point((point1.x + point2.x) / 2, (point1.y + point2.y) / 2);
     }
 
+    /**
+     * Returns the center of the intersections with the edges of the screen
+     * @return the center point
+     */
     public Point edgesCenter() {
         return Point.center(edge1, edge2);
     }
 
+    /**
+     * Finds the intersection points with the edges of the screen
+     */
     public void calcEdges() {
         Point[] edges = new Point[2];
         int[] xEdges = {0, DrivingActivity.mFrameHeight};
@@ -134,10 +172,19 @@ public class LinearEquation {
 
     }
 
+    /**
+     * Returns the length of the line
+     * @return length of line
+     */
     public double length() {
         return point1.distance(point2);
     }
 
+    /**
+     * Returns the normal to the line in point p
+     * @param p a point on the line
+     * @return the normal line
+     */
     public LinearEquation normal(Point p) {
         double a = -1 / this.a;
         double b = -a * p.x + p.y;

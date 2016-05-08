@@ -41,6 +41,12 @@ public class LaneDetector {
         mHough = new Mat();
     }
 
+    /**
+     * Clears old data and processes the new frame.
+     * Steps: Detect line, calculate LinearEquations, extract lanes, calculate bisectors.
+     *
+     * @param frame raw camera frame
+     */
     public void processFrame(Mat frame) {
 
         mLinearEquations.clear();
@@ -72,6 +78,10 @@ public class LaneDetector {
         }
     }
 
+    /**
+     * Detects all lines in the image.
+     * Uses Canny and Hough Transform.
+     */
     public void detectLines() {
 
         // Convert image to grayscale
@@ -103,6 +113,9 @@ public class LaneDetector {
 
     }
 
+    /**
+     * Calculates linear equations from
+     */
     private void calculateLinearEquations() {
 
         //Log.e("LaneDetector", "Detected lines: " + mLines.rows());
@@ -120,7 +133,14 @@ public class LaneDetector {
         }
     }
 
-
+    /**
+     * Receives a pair of lines and returns true if they can be lanes and false otherwise
+     * Uses heuristics.
+     *
+     * @param line1 first line
+     * @param line2 second line
+     * @return are the two lines lanes
+     */
     public boolean qualifyAsLanes(LinearEquation line1, LinearEquation line2) {
         double a1 = line1.a,
                 b1 = line1.b,
@@ -159,6 +179,14 @@ public class LaneDetector {
         return false;
     }
 
+    /**
+     * Determines which lane is on the left and which lane is on the right.
+     * Finally, inserts them in the appropriate index.
+     *
+     * @param lane1 first lane
+     * @param lane2 second lane
+     * @param index first pair or second pair of lanes
+     */
     private void setLanes(LinearEquation lane1, LinearEquation lane2, int index) {
         if (lane1.distanceFromPoint(new Point(DrivingActivity.mFrameHeight / 2, 0)) > lane2.distanceFromPoint(new Point(DrivingActivity.mFrameHeight / 2, 0))) {
             mLanes[LEFT][index] = lane1;
@@ -169,6 +197,9 @@ public class LaneDetector {
         }
     }
 
+    /**
+     * Goes over all of the lines and finds one or two pairs of lanes.
+     */
     public void extractLanes() {
 
         //Log.e("LaneDetector", "Equations: " + mLinearEquations.size());
@@ -190,21 +221,26 @@ public class LaneDetector {
 
     }
 
+    /**
+     * Receives a pair of lines.
+     * Returns true if their brightness difference is suitable for lanes.
+     *
+     * @param line1 first line
+     * @param line2 second line
+     * @return whether brightness difference is suitable for lanes
+     */
     public boolean brightnessDifferenceQualifies(LinearEquation line1, LinearEquation line2) {
         double b1 = Math.abs(brightnessDifferenceAroundLine(line1));
         double b2 = Math.abs(brightnessDifferenceAroundLine(line2));
         return Math.abs(b1) > BRIGHTNESS_DIFFERENCE_THRESHOLD && Math.abs(b2) > BRIGHTNESS_DIFFERENCE_THRESHOLD && Math.abs(Math.abs(b1) - Math.abs(b2)) < 20;
     }
 
-//    public void filterBybrightnessDifference(){
-//        ArrayList<LinearEquation> iterable = (ArrayList<LinearEquation>) mLinearEquations.clone();
-//        for(LinearEquation line: iterable){
-//            if(Math.abs(brightnessDifferenceAroundLine(line)) < BRIGHTNESS_DIFFERENCE_THRESHOLD){
-//                mLinearEquations.remove(line);
-//            }
-//        }
-//    }
-
+    /**
+     * Receives a line and returns the brightness difference between its sides
+     *
+     * @param line the line to evaluate
+     * @return brightness difference value
+     */
     public double brightnessDifferenceAroundLine(LinearEquation line) {
         int bDiff = (int) ((mRgba.width() / 40) * Math.sqrt(Math.pow(line.a, 2) + 1));
         LinearEquation side1 = new LinearEquation(line.a, line.b + bDiff, line.center());
@@ -219,6 +255,12 @@ public class LaneDetector {
         return lineBrightness(side1) - lineBrightness(side2);
     }
 
+    /**
+     * Receives a line and returns the average brightness of all of its points.
+     *
+     * @param line the line to evaluate
+     * @return brightness value
+     */
     public double lineBrightness(LinearEquation line) {
         Point p;
         double sum = 0;
@@ -236,6 +278,11 @@ public class LaneDetector {
         return sum / samples;
     }
 
+    /**
+     * Draws lanes on the image
+     *
+     * @param frame the image to draw on
+     */
     public void drawLanes(Mat frame) {
 
         for (int i = 0; i < 2; i++) {
@@ -253,12 +300,20 @@ public class LaneDetector {
         }
     }
 
+    /**
+     * Draws all linear equations on the image
+     * @param frame image to draw on
+     */
     public void drawLines(Mat frame) {
         for (LinearEquation line : mLinearEquations) {
             drawLinearEquation(frame, line, new Scalar(0, 0, 0));
         }
     }
 
+    /**
+     * Draws all linear equations on the image
+     * @param frame image to draw on
+     */
     public void drawOriginalLines(Mat frame) {
         for (LinearEquation line : mLinearEquations) {
             Imgproc.line(frame,
@@ -268,6 +323,9 @@ public class LaneDetector {
         }
     }
 
+    /**
+     * Creates the final display frame
+     */
     public void createDisplayFrame() {
 //        mCanny.copyTo(mDisplayFrame);
         mRgba.copyTo(mDisplayFrame);
@@ -279,6 +337,12 @@ public class LaneDetector {
         Imgproc.circle(mDisplayFrame, new Point(DrivingActivity.mFrameWidth / 2, DrivingActivity.mFrameHeight * MotorSpeedCalculator.LINE_HEIGHT * 0.5), 5, new Scalar(250, 250, 250));
     }
 
+    /**
+     * Draws a linear equations on the image
+     * @param frame the image to draw on
+     * @param line the line to draw
+     * @param color the color of the line
+     */
     public void drawLinearEquation(Mat frame, LinearEquation line, Scalar color) {
         double a = line.a,
                 b = line.b,
@@ -302,33 +366,64 @@ public class LaneDetector {
         }
     }
 
+    /**
+     * Returns whether a pair of line exists
+     *
+     * @param index first or second pair of lanes (0 or 1)
+     * @return pair exists
+     */
     public boolean lanesFound(int index) {
         return mLanes[LEFT][index] != null && mLanes[RIGHT][index] != null;
     }
 
+    /**
+     * Getter for display frame
+     * @return display frame
+     */
     public Mat getDisplayFrame() {
         createDisplayFrame();
         return mDisplayFrame;
     }
 
+    /**
+     * Getter for bisector line
+     * @param index first or second pair of lanes (0 or 1)
+     * @return bisector line
+     */
     public LinearEquation getBisectorLine(int index) {
         return mBisectorLines[index];
     }
 
+    /**
+     * Getter for canny frame
+     * @return canny frame
+     */
     public Mat getCanny() {
         return mCanny;
     }
 
+    /**
+     * Getter for grayscale frame
+     * @return grayscale frame
+     */
     public Mat getGrayscale() {
         return mGrayscale;
     }
 
+    /**
+     * Generator and getter for Hough Lines frame
+     * @return Hough Lines frame
+     */
     public Mat getHough() {
         mRgba.copyTo(mHough);
         drawOriginalLines(mHough);
         return mHough;
     }
 
+    /**
+     * Getter for bisector lines
+     * @return all bisector lines
+     */
     public LinearEquation[] getBisectorLines() {
         return mBisectorLines;
     }

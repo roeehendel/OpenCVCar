@@ -15,6 +15,7 @@ public class ObstacleDetector {
     private boolean mObstacleDetected = false;
 
     /**
+     * Detects obstacle in the frame
      * @param frame Canny frame
      */
     public void processFrame(Mat frame) {
@@ -30,6 +31,9 @@ public class ObstacleDetector {
 
     }
 
+    /**
+     * @return whether an obstacle was detected or not
+     */
     public boolean obstacleDetected() {
         return mObstacleDetected;
     }

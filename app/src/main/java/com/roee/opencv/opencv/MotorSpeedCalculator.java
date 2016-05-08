@@ -5,13 +5,11 @@ package com.roee.opencv.opencv;
  */
 public class MotorSpeedCalculator {
 
-    public static final int LEFT = 0;
-    public static final int RIGHT = 1;
+
     public static final double LINE_HEIGHT = 1.0 / 2.0;
     private static final double K_TILT = 0.573;
     private static final double K_ERROR = 1.0 / 100.0;
     private static final double K_P = 1.6;
-    private static final double K_D = 1.4;
     private static final double K_V = 1.0;
     private static final double MAX_SPEED = 2;
     private static final double BASE_SPEED = 1;
@@ -26,26 +24,22 @@ public class MotorSpeedCalculator {
     private double mDeviation = 0;
     private double mDistance = 0;
 
-    private double lastError;
-
-    public MotorSpeedCalculator(double lastError) {
-        this.lastError = lastError;
+    public MotorSpeedCalculator() {
         mDistance = 0;
     }
 
-    public static void setTiltCalibrationValue(double mTiltCalibrationValue) {
-        MotorSpeedCalculator.sTiltCalibrationValue = mTiltCalibrationValue;
-    }
-
-    public static void setDeviationCalibrationValue(double mDeviationCalibrationValue) {
-        MotorSpeedCalculator.sDeviationCalibrationValue = mDeviationCalibrationValue;
-    }
-
+    /**
+     * Resets speeds to base speeds
+     */
     public static void resetSpeeds() {
         sLeftSpeed = BASE_SPEED;
         sRightSpeed = BASE_SPEED;
     }
 
+    /**
+     * Adds a new frame data (bisectors)
+     * @param bisectors the calculated bisectors
+     */
     public void addFrameData(LinearEquation[] bisectors) {
 
         mFramesCount++;
@@ -65,99 +59,89 @@ public class MotorSpeedCalculator {
 
     }
 
+    /**
+     * Gets the average tilt
+     * @return average tilt
+     */
     public double getTilt() {
         return mTilt / mFramesCount;
     }
 
-    /*
-    * The calibrated tilt is tan(theta), where theta is the angle between the direction of the car and the direction of the detected lane
-    * Values should range from -1 to 1, where this function is the most accurate
+    /**
+     * Gets the calibrated average tilt
+     * @return calibrated average tilt
      */
     public double getCalibratedTilt() {
         return (mTilt / mFramesCount + sTiltCalibrationValue + getCalibratedDeviation() / 5 * 0.02) * K_TILT;
     }
 
+    /**
+     * Gets the average deviation
+     * @return average deviation
+     */
     public double getDeviation() {
         return mDeviation / mFramesCount;
     }
 
+    /**
+     * Gets the calibrated average deviation
+     * @return calibrated average deviation
+     */
     public double getCalibratedDeviation() {
         return mDeviation / mFramesCount + sDeviationCalibrationValue;
     }
 
+    /**
+     * Gets the average distance
+     * @return average distance
+     */
     public double getDistance() {
         return mDistance / mFramesCount;
     }
 
+    /**
+     * Gets the frame count
+     * @return frame count
+     */
     public int getFramesCount() {
         return mFramesCount;
     }
 
     /**
-     * Calculate the correction for each motor
-     *
-     * @param side
-     * @return
+     * Gets the speed of the left motor
+     * @return left motor speed
      */
-    private double correction(int side) {
-        if (side == correctionDirection()) {
-            return correctionMagnitude();
-        }
-        // Todo: check whether returning 0 instead is better or not
-        return -correctionMagnitude();
-    }
-
     public double getLeftSpeed() {
         return sLeftSpeed;
     }
 
+    /**
+     * Gets the speed of the right motor
+     * @return right motor speed
+     */
     public double getRightSpeed() {
         return sRightSpeed;
     }
 
+    /**
+     * Gets the speed of the right motor
+     * @return right motor speed
+     */
     public double error() {
         return K_ERROR * getDistance();
     }
 
-    public double dError() {
-        return error() - lastError;
-    }
-
+    /**
+     * Correction function
+     * @return correction
+     */
     public double correction() {
         return 1 / (1 + Math.exp(-4 * (K_P * error()))) - 0.5;
     }
 
-    public int correctionDirection() {
-        boolean tiltPositive = getCalibratedTilt() > 0;
-        boolean deviationPositive = getCalibratedDeviation() > 0;
-
-        if (tiltPositive && deviationPositive) {
-            // Deviation: none, Tilt: right (RIGHT)
-            return RIGHT;
-        } else if (!tiltPositive && !deviationPositive) {
-            // Deviation: none, Tilt: left (LEFT)
-            return LEFT;
-        } else if (!tiltPositive && deviationPositive) {
-            // Deviation: right, Tilt: none (RIGHT)
-            return RIGHT;
-        } else if (tiltPositive && !deviationPositive) {
-            // Deviation: left, Tilt: none (LEFT)
-            return LEFT;
-        }
-        return -1;
-    }
-
-    public double correctionMagnitude() {
-        double tilt = Math.abs(getCalibratedTilt());
-        double deviation = Math.abs(getCalibratedDeviation());
-
-        if (tilt > 3 || deviation > 20) {
-            return Math.round((deviation / 250) * 100.0) / 100.0;
-        }
-        return 0;
-
-    }
-
+    /**
+     * Calculates speeds for each motor based on the correction
+     */
     public void calculateSpeeds() {
         sRightSpeed = BASE_SPEED + K_V * correction();
         sRightSpeed = (Math.abs(sRightSpeed) > MAX_SPEED) ? Math.signum(sRightSpeed) * MAX_SPEED : sRightSpeed;
